@@ -1,0 +1,591 @@
+package main
+
+import (
+	"fmt"
+	"image/color"
+	"math/rand"
+	"net"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/app"
+	"fyne.io/fyne/v2/canvas"
+	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/theme"
+	"fyne.io/fyne/v2/widget"
+)
+
+// ─── رنج‌های رسمی کلودفلر ───────────────────────────────────────────────────
+var cfSubnets = []string{
+	"103.21.244", "103.22.200", "103.22.201", "103.31.4", "103.31.5",
+	"104.16", "104.17", "104.18", "104.19", "104.20",
+	"104.21", "104.22", "104.24", "104.25", "104.26", "104.27", "104.28",
+	"172.64", "172.65", "172.66", "172.67", "172.68", "172.69", "172.70", "172.71",
+	"108.162.192", "108.162.193", "108.162.194", "108.162.195",
+	"108.162.196", "108.162.197", "108.162.198", "108.162.199",
+	"162.158.0", "162.158.1", "162.158.2", "162.158.78",
+	"162.158.100", "162.158.150", "162.158.200",
+	"190.93.240", "190.93.241", "190.93.242", "190.93.243", "190.93.244",
+	"188.114.96", "188.114.97", "188.114.98", "188.114.99",
+	"197.234.240", "197.234.241", "197.234.242", "197.234.243",
+	"198.41.128", "198.41.144", "198.41.192", "198.41.208",
+	"141.101.64", "141.101.65", "141.101.66", "141.101.67",
+	"131.0.72", "131.0.73", "131.0.74", "131.0.75",
+	"173.245.48", "173.245.49", "173.245.50", "173.245.51",
+}
+
+// ─── پالت رنگی ────────────────────────────────────────────────────────────────
+var (
+	colBg     = color.NRGBA{8, 6, 14, 255}
+	colCard   = color.NRGBA{19, 15, 28, 255}
+	colBorder = color.NRGBA{42, 35, 64, 255}
+	colAccent = color.NRGBA{139, 63, 255, 255}
+	colAccent2 = color.NRGBA{0, 224, 190, 255}
+	colFg     = color.NRGBA{225, 219, 245, 255}
+	colFgDim  = color.NRGBA{148, 138, 176, 255}
+	colGood   = color.NRGBA{0, 224, 150, 255}
+)
+
+type ScanResult struct {
+	IP     string
+	Port   int
+	PingMs int64
+}
+
+type ConfigItem struct {
+	IP     string
+	Port   int
+	Config string
+}
+
+// ─── تست TCP خام (بدون TLS) ─────────────────────────────────────────────────
+func pingTCP(ip string, port int, timeout time.Duration) (int64, bool) {
+	t0 := time.Now()
+	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", ip, port), timeout)
+	if err != nil {
+		return 0, false
+	}
+	conn.Close()
+	ms := time.Since(t0).Milliseconds()
+	if ms < 5 {
+		return 0, false
+	}
+	return ms, true
+}
+
+// ─── تولید IP از CIDR ────────────────────────────────────────────────────────
+func genFromCIDR(cidr string) []string {
+	parts := strings.Split(cidr, "/")
+	if len(parts) != 2 {
+		return nil
+	}
+	bits, err := strconv.Atoi(parts[1])
+	if err != nil || bits < 8 || bits > 32 {
+		return nil
+	}
+	octets := strings.Split(parts[0], ".")
+	if len(octets) != 4 {
+		return nil
+	}
+	var nums [4]int
+	for i, o := range octets {
+		n, e := strconv.Atoi(o)
+		if e != nil {
+			return nil
+		}
+		nums[i] = n
+	}
+	ipNum := (nums[0] << 24) | (nums[1] << 16) | (nums[2] << 8) | nums[3]
+	hostBits := 32 - bits
+	mask := ^((1 << hostBits) - 1)
+	network := ipNum & mask
+	total := 1 << hostBits
+	max := total
+	if max > 65536 {
+		max = 65536
+	}
+	out := make([]string, 0, max)
+	for h := 1; h < total && len(out) < max; h++ {
+		full := network + h
+		d := full & 255
+		if d == 0 || d == 255 {
+			continue
+		}
+		out = append(out, fmt.Sprintf("%d.%d.%d.%d",
+			(full>>24)&255, (full>>16)&255, (full>>8)&255, d))
+	}
+	return out
+}
+
+// ─── تولید IP رندوم از ساب‌نت‌های کلودفلر ────────────────────────────────────
+func genRandom(n int) []string {
+	seen := map[string]bool{}
+	out := make([]string, 0, n)
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	guard := 0
+	for len(out) < n && guard < n*8 {
+		guard++
+		sub := cfSubnets[rng.Intn(len(cfSubnets))]
+		parts := strings.Split(sub, ".")
+		d := rng.Intn(254) + 1
+		var ip string
+		if len(parts) == 3 {
+			ip = fmt.Sprintf("%s.%d", sub, d)
+		} else {
+			c := rng.Intn(254) + 1
+			ip = fmt.Sprintf("%s.%d.%d", sub, c, d)
+		}
+		if !seen[ip] {
+			seen[ip] = true
+			out = append(out, ip)
+		}
+	}
+	return out
+}
+
+// ─── تم تیره سفارشی ─────────────────────────────────────────────────────────
+type darkTheme struct{}
+
+func (darkTheme) Color(n fyne.ThemeColorName, v fyne.ThemeVariant) color.Color {
+	switch n {
+	case theme.ColorNameBackground:
+		return colBg
+	case theme.ColorNameButton:
+		return colCard
+	case theme.ColorNamePrimary:
+		return colAccent
+	case theme.ColorNameForeground:
+		return colFg
+	case theme.ColorNamePlaceHolder:
+		return colFgDim
+	case theme.ColorNameInputBackground:
+		return colCard
+	case theme.ColorNameSeparator:
+		return colBorder
+	}
+	return theme.DefaultTheme().Color(n, v)
+}
+func (darkTheme) Font(s fyne.TextStyle) fyne.Resource     { return theme.DefaultTheme().Font(s) }
+func (darkTheme) Icon(n fyne.ThemeIconName) fyne.Resource { return theme.DefaultTheme().Icon(n) }
+func (darkTheme) Size(n fyne.ThemeSizeName) float32       { return theme.DefaultTheme().Size(n) }
+
+// section یک بلوک با عنوان و کادر دور، برای مرتب‌سازی بصری.
+func section(titleText string, items ...fyne.CanvasObject) fyne.CanvasObject {
+	body := container.NewVBox(items...)
+	if titleText != "" {
+		lbl := canvas.NewText(titleText, colFgDim)
+		lbl.TextSize = 12
+		lbl.TextStyle = fyne.TextStyle{Bold: true}
+		lbl.Alignment = fyne.TextAlignTrailing // راست‌چین برای فارسی
+		body = container.NewVBox(append([]fyne.CanvasObject{lbl}, items...)...)
+	}
+
+	bg := canvas.NewRectangle(colCard)
+	bg.CornerRadius = 12
+	border := canvas.NewRectangle(color.Transparent)
+	border.StrokeColor = colBorder
+	border.StrokeWidth = 1
+	border.CornerRadius = 12
+
+	return container.NewPadded(container.NewStack(bg, border, container.NewPadded(body)))
+}
+
+func main() {
+	a := app.New()
+	a.Settings().SetTheme(darkTheme{})
+	w := a.NewWindow("MHMTSCANNER")
+	w.Resize(fyne.NewSize(430, 780))
+
+	// ── Header ──
+	title := canvas.NewText("MHMTSCANNER", colAccent)
+	title.TextStyle = fyne.TextStyle{Bold: true}
+	title.TextSize = 24
+	title.Alignment = fyne.TextAlignCenter
+
+	sub := canvas.NewText("CF CLEAN IP SCANNER  •  RAW TCP", colFgDim)
+	sub.TextSize = 11
+	sub.Alignment = fyne.TextAlignCenter
+
+	accentBar := canvas.NewRectangle(colAccent)
+	accentBar.SetMinSize(fyne.NewSize(0, 3))
+	accentBar2 := canvas.NewRectangle(colAccent2)
+	accentBar2.SetMinSize(fyne.NewSize(0, 3))
+
+	header := container.NewVBox(
+		container.NewPadded(container.NewVBox(
+			container.NewCenter(title),
+			container.NewCenter(sub),
+		)),
+		container.NewGridWithColumns(2, accentBar, accentBar2),
+	)
+
+	// ── Inputs ──
+	cidrEntry := widget.NewEntry()
+	cidrEntry.SetPlaceHolder("مثال: 104.16.0.0/24  (خالی = رندوم)")
+
+	portEntry := widget.NewEntry()
+	portEntry.SetText("80")
+
+	countEntry := widget.NewEntry()
+	countEntry.SetText("100")
+
+	inputsCard := section("تنظیمات اسکن",
+		widget.NewLabelWithStyle("رنج CIDR", fyne.TextAlignTrailing, fyne.TextStyle{}),
+		cidrEntry,
+		container.NewGridWithColumns(2,
+			container.NewVBox(
+				widget.NewLabelWithStyle("پورت‌ها (با کاما)", fyne.TextAlignTrailing, fyne.TextStyle{}),
+				portEntry,
+			),
+			container.NewVBox(
+				widget.NewLabelWithStyle("تعداد (حالت رندوم)", fyne.TextAlignTrailing, fyne.TextStyle{}),
+				countEntry,
+			),
+		),
+	)
+
+	// ── Stats ──
+	statsLabel := widget.NewLabelWithStyle("SCANNED: 0   OPEN: 0   BEST: —", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+	progress := widget.NewProgressBar()
+	progress.Min = 0
+	progress.Max = 1
+
+	scanBtn := widget.NewButtonWithIcon("SCAN", theme.MediaPlayIcon(), nil)
+	scanBtn.Importance = widget.HighImportance
+
+	actionsCard := section("", scanBtn, progress, statsLabel)
+
+	top := container.NewVBox(header, inputsCard, actionsCard)
+
+	// ── Shared state ──
+	var (
+		results  []ScanResult
+		configs  []ConfigItem
+		mu       sync.Mutex
+		stopCh   chan struct{}
+		scanning bool
+	)
+
+	// ═══════════════════ تب نتایج IP ═══════════════════
+
+	resultList := widget.NewList(
+		func() int { return 0 },
+		func() fyne.CanvasObject {
+			ip := widget.NewLabel("0.0.0.0:443")
+			ip.TextStyle = fyne.TextStyle{Monospace: true}
+			ping := canvas.NewText("0ms", colGood)
+			ping.TextStyle = fyne.TextStyle{Bold: true}
+			copyBtn := widget.NewButtonWithIcon("", theme.ContentCopyIcon(), func() {})
+			copyBtn.Importance = widget.LowImportance
+			right := container.NewHBox(ping, copyBtn)
+			return container.NewBorder(nil, nil, nil, right, ip)
+		},
+		func(id widget.ListItemID, o fyne.CanvasObject) {},
+	)
+
+	copyAllBtn := widget.NewButtonWithIcon("کپی همه IP", theme.ContentCopyIcon(), func() {
+		mu.Lock()
+		lines := make([]string, len(results))
+		for i, r := range results {
+			lines[i] = r.IP
+		}
+		mu.Unlock()
+		w.Clipboard().SetContent(strings.Join(lines, "\n"))
+	})
+	copyAllBtn.Hide()
+
+	updateList := func() {
+		mu.Lock()
+		local := make([]ScanResult, len(results))
+		copy(local, results)
+		mu.Unlock()
+
+		resultList.Length = func() int { return len(local) }
+		resultList.UpdateItem = func(id widget.ListItemID, o fyne.CanvasObject) {
+			r := local[id]
+			box := o.(*fyne.Container)
+			ip := box.Objects[0].(*widget.Label)
+			right := box.Objects[1].(*fyne.Container)
+			ping := right.Objects[0].(*canvas.Text)
+			copyBtn := right.Objects[1].(*widget.Button)
+
+			ip.SetText(fmt.Sprintf("%s:%d", r.IP, r.Port))
+			ping.Text = fmt.Sprintf("%dms", r.PingMs)
+			ping.Color = colGood
+			ping.Refresh()
+			copyBtn.OnTapped = func() {
+				w.Clipboard().SetContent(fmt.Sprintf("%s:%d", r.IP, r.Port))
+			}
+		}
+		resultList.Refresh()
+	}
+
+	resultsBg := canvas.NewRectangle(colCard)
+	resultsBg.CornerRadius = 12
+	resultsWrap := container.NewPadded(container.NewStack(resultsBg, container.NewPadded(
+		container.NewBorder(nil, container.NewPadded(copyAllBtn), nil, nil, resultList),
+	)))
+
+	// ═══════════════════ تب کانفیگ ═══════════════════
+
+	templateEntry := widget.NewMultiLineEntry()
+	templateEntry.SetPlaceHolder("قالب کانفیگ رو اینجا بذار. به‌جای IP از {ip} و به‌جای پورت از {port} استفاده کن.\nمثال:\ntrojan://pass@{ip}:{port}?security=tls&sni=example.com#MHMT-{ip}")
+	templateEntry.Wrapping = fyne.TextWrapWord
+	templateEntry.SetMinRowsVisible(5)
+
+	configMsg := widget.NewLabel("")
+	configMsg.Alignment = fyne.TextAlignTrailing
+
+	configList := widget.NewList(
+		func() int { return 0 },
+		func() fyne.CanvasObject {
+			lbl := widget.NewLabel("0.0.0.0:443")
+			lbl.TextStyle = fyne.TextStyle{Monospace: true}
+			copyBtn := widget.NewButtonWithIcon("", theme.ContentCopyIcon(), func() {})
+			copyBtn.Importance = widget.LowImportance
+			return container.NewBorder(nil, nil, nil, copyBtn, lbl)
+		},
+		func(id widget.ListItemID, o fyne.CanvasObject) {},
+	)
+
+	copyAllConfigsBtn := widget.NewButtonWithIcon("کپی همه کانفیگ‌ها", theme.ContentCopyIcon(), func() {
+		mu.Lock()
+		lines := make([]string, len(configs))
+		for i, c := range configs {
+			lines[i] = c.Config
+		}
+		mu.Unlock()
+		w.Clipboard().SetContent(strings.Join(lines, "\n\n"))
+	})
+	copyAllConfigsBtn.Hide()
+
+	updateConfigList := func() {
+		mu.Lock()
+		local := make([]ConfigItem, len(configs))
+		copy(local, configs)
+		mu.Unlock()
+
+		configList.Length = func() int { return len(local) }
+		configList.UpdateItem = func(id widget.ListItemID, o fyne.CanvasObject) {
+			c := local[id]
+			box := o.(*fyne.Container)
+			lbl := box.Objects[0].(*widget.Label)
+			copyBtn := box.Objects[1].(*widget.Button)
+			lbl.SetText(fmt.Sprintf("%s:%d", c.IP, c.Port))
+			copyBtn.OnTapped = func() {
+				w.Clipboard().SetContent(c.Config)
+			}
+		}
+		configList.Refresh()
+	}
+
+	genBtn := widget.NewButtonWithIcon("ساخت کانفیگ از نتایج", theme.ViewRefreshIcon(), func() {
+		tpl := templateEntry.Text
+		if strings.TrimSpace(tpl) == "" {
+			configMsg.SetText("اول یه قالب کانفیگ وارد کن")
+			return
+		}
+		mu.Lock()
+		src := make([]ScanResult, len(results))
+		copy(src, results)
+		mu.Unlock()
+
+		if len(src) == 0 {
+			configMsg.SetText("هنوز نتیجه‌ای نیست — اول اسکن بزن")
+			return
+		}
+
+		built := make([]ConfigItem, 0, len(src))
+		for _, r := range src {
+			cfg := strings.ReplaceAll(tpl, "{ip}", r.IP)
+			cfg = strings.ReplaceAll(cfg, "{port}", strconv.Itoa(r.Port))
+			built = append(built, ConfigItem{IP: r.IP, Port: r.Port, Config: cfg})
+		}
+
+		mu.Lock()
+		configs = built
+		mu.Unlock()
+
+		configMsg.SetText(fmt.Sprintf("%d کانفیگ ساخته شد", len(built)))
+		updateConfigList()
+		copyAllConfigsBtn.Show()
+	})
+	genBtn.Importance = widget.HighImportance
+
+	configCard := section("قالب کانفیگ", templateEntry, genBtn, configMsg)
+
+	configBg := canvas.NewRectangle(colCard)
+	configBg.CornerRadius = 12
+	configListWrap := container.NewPadded(container.NewStack(configBg, container.NewPadded(
+		container.NewBorder(nil, container.NewPadded(copyAllConfigsBtn), nil, nil, configList),
+	)))
+
+	configTab := container.NewBorder(configCard, nil, nil, nil, configListWrap)
+
+	// ═══════════════════ تب‌ها ═══════════════════
+
+	tabs := container.NewAppTabs(
+		container.NewTabItemWithIcon("نتایج", theme.SearchIcon(), resultsWrap),
+		container.NewTabItemWithIcon("کانفیگ", theme.SettingsIcon(), configTab),
+	)
+	tabs.SetTabLocation(container.TabLocationTop)
+
+	// ═══════════════════ منطق اسکن ═══════════════════
+
+	scanBtn.OnTapped = func() {
+		if scanning {
+			if stopCh != nil {
+				close(stopCh)
+			}
+			return
+		}
+
+		ports := []int{}
+		for _, p := range strings.Split(portEntry.Text, ",") {
+			p = strings.TrimSpace(p)
+			if n, err := strconv.Atoi(p); err == nil && n > 0 && n <= 65535 {
+				ports = append(ports, n)
+			}
+		}
+		if len(ports) == 0 {
+			ports = []int{80}
+		}
+
+		var ips []string
+		cidr := strings.TrimSpace(cidrEntry.Text)
+		if cidr != "" {
+			ips = genFromCIDR(cidr)
+			if len(ips) == 0 {
+				statsLabel.SetText("رنج CIDR معتبر نیست")
+				return
+			}
+		} else {
+			n, _ := strconv.Atoi(countEntry.Text)
+			if n <= 0 {
+				n = 100
+			}
+			ips = genRandom(n)
+		}
+
+		mu.Lock()
+		results = nil
+		configs = nil
+		mu.Unlock()
+		updateList()
+		updateConfigList()
+		copyAllBtn.Hide()
+		copyAllConfigsBtn.Hide()
+		configMsg.SetText("")
+		progress.SetValue(0)
+		statsLabel.SetText("در حال اسکن...")
+
+		scanning = true
+		stopCh = make(chan struct{})
+		scanBtn.SetText("STOP")
+		scanBtn.SetIcon(theme.MediaStopIcon())
+
+		go func() {
+			total := len(ips)
+			done := 0
+			openCount := 0
+			var bestMs int64 = -1
+
+			sem := make(chan struct{}, 60)
+			var wg sync.WaitGroup
+
+			// آپدیت UI فقط با فاصله‌ی زمانی مشخص انجام میشه، نه برای هر IP —
+			// این چیزیه که باعث لگ و گیر کردن گوشی می‌شد.
+			lastUI := time.Now()
+			const uiInterval = 120 * time.Millisecond
+
+			pushUI := func(force bool) {
+				if !force && time.Since(lastUI) < uiInterval {
+					return
+				}
+				lastUI = time.Now()
+
+				mu.Lock()
+				o := openCount
+				b := bestMs
+				d := done
+				mu.Unlock()
+
+				best := "—"
+				if b >= 0 {
+					best = fmt.Sprintf("%dms", b)
+				}
+				pct := float64(d) / float64(total)
+
+				// fyne.Do تضمین می‌کنه تغییرات ویجت از thread اصلی UI اجرا بشه،
+				// نه از این goroutine پس‌زمینه.
+				fyne.Do(func() {
+					progress.SetValue(pct)
+					statsLabel.SetText(fmt.Sprintf("SCANNED: %d/%d   OPEN: %d   BEST: %s", d, total, o, best))
+					updateList()
+				})
+			}
+
+		loop:
+			for _, ip := range ips {
+				select {
+				case <-stopCh:
+					break loop
+				default:
+				}
+
+				for _, port := range ports {
+					wg.Add(1)
+					sem <- struct{}{}
+					go func(ip string, port int) {
+						defer wg.Done()
+						defer func() { <-sem }()
+
+						ms, ok := pingTCP(ip, port, 2500*time.Millisecond)
+						if ok {
+							mu.Lock()
+							results = append(results, ScanResult{IP: ip, Port: port, PingMs: ms})
+							openCount++
+							if bestMs < 0 || ms < bestMs {
+								bestMs = ms
+							}
+							mu.Unlock()
+						}
+					}(ip, port)
+				}
+
+				mu.Lock()
+				done++
+				mu.Unlock()
+				pushUI(false)
+			}
+
+			wg.Wait()
+			pushUI(true)
+
+			mu.Lock()
+			o := openCount
+			b := bestMs
+			mu.Unlock()
+
+			fyne.Do(func() {
+				if o > 0 {
+					copyAllBtn.Show()
+				}
+				scanBtn.SetText("SCAN")
+				scanBtn.SetIcon(theme.MediaPlayIcon())
+				scanning = false
+				best := "—"
+				if b >= 0 {
+					best = fmt.Sprintf("%dms", b)
+				}
+				statsLabel.SetText(fmt.Sprintf("تموم شد — SCANNED: %d   OPEN: %d   BEST: %s", total, o, best))
+			})
+		}()
+	}
+
+	w.SetContent(container.NewBorder(top, nil, nil, nil, tabs))
+	w.ShowAndRun()
+}
