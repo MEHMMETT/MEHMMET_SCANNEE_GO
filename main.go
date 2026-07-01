@@ -261,7 +261,7 @@ func main() {
 	scanBtn := widget.NewButtonWithIcon("SCAN", theme.MediaPlayIcon(), nil)
 	scanBtn.Importance = widget.HighImportance
 
-	settingsCard := section("تنظیمات اسکن",
+	settingsBody := container.NewVBox(
 		widget.NewLabelWithStyle("رنج CIDR", fyne.TextAlignTrailing, fyne.TextStyle{}),
 		cidrEntry,
 		container.NewGridWithColumns(2,
@@ -279,6 +279,34 @@ func main() {
 		progress,
 		statsLabel,
 	)
+
+	settingsTitle := canvas.NewText("تنظیمات اسکن", colFgDim)
+	settingsTitle.TextSize = 12
+	settingsTitle.TextStyle = fyne.TextStyle{Bold: true}
+	settingsTitle.Alignment = fyne.TextAlignTrailing
+
+	// دکمه‌ی جمع/باز کردن کارت تنظیمات، برای اینکه بشه فضای بیشتری
+	// به لیست نتایج/کانفیگ داد.
+	var toggleSettingsBtn *widget.Button
+	toggleSettingsBtn = widget.NewButton("جمع کن ▲", func() {
+		if settingsBody.Visible() {
+			settingsBody.Hide()
+			toggleSettingsBtn.SetText("باز کن ▼")
+		} else {
+			settingsBody.Show()
+			toggleSettingsBtn.SetText("جمع کن ▲")
+		}
+	})
+	toggleSettingsBtn.Importance = widget.LowImportance
+
+	titleRow := container.NewBorder(nil, nil, toggleSettingsBtn, nil, settingsTitle)
+
+	settingsBg := canvas.NewRectangle(colCard)
+	settingsBg.CornerRadius = 12
+	settingsBg.StrokeColor = colBorder
+	settingsBg.StrokeWidth = 1
+	settingsInner := container.New(layout.NewCustomPaddedLayout(8, 8, 12, 12), container.NewVBox(titleRow, settingsBody))
+	settingsCard := container.New(layout.NewCustomPaddedLayout(4, 4, 6, 6), container.NewStack(settingsBg, settingsInner))
 
 	top := container.NewVBox(header, settingsCard)
 
@@ -302,7 +330,7 @@ func main() {
 			ping.TextStyle = fyne.TextStyle{Bold: true}
 			copyIcon := widget.NewIcon(theme.ContentCopyIcon())
 			right := container.NewHBox(ping, copyIcon)
-			return container.NewBorder(nil, nil, nil, right, ip)
+			return container.NewHBox(ip, layout.NewSpacer(), right)
 		},
 		func(id widget.ListItemID, o fyne.CanvasObject) {},
 	)
@@ -329,7 +357,7 @@ func main() {
 			r := local[id]
 			box := o.(*fyne.Container)
 			ip := box.Objects[0].(*widget.Label)
-			right := box.Objects[1].(*fyne.Container)
+			right := box.Objects[2].(*fyne.Container)
 			ping := right.Objects[0].(*canvas.Text)
 
 			ip.SetText(fmt.Sprintf("%s:%d", r.IP, r.Port))
@@ -375,7 +403,7 @@ func main() {
 			lbl := widget.NewLabel("0.0.0.0:443")
 			lbl.TextStyle = fyne.TextStyle{Monospace: true}
 			copyIcon := widget.NewIcon(theme.ContentCopyIcon())
-			return container.NewBorder(nil, nil, nil, copyIcon, lbl)
+			return container.NewHBox(lbl, layout.NewSpacer(), copyIcon)
 		},
 		func(id widget.ListItemID, o fyne.CanvasObject) {},
 	)
@@ -548,7 +576,7 @@ func main() {
 			// آپدیت UI فقط با فاصله‌ی زمانی مشخص انجام میشه، نه برای هر IP —
 			// این چیزیه که باعث لگ و گیر کردن گوشی می‌شد.
 			lastUI := time.Now()
-			const uiInterval = 120 * time.Millisecond
+			const uiInterval = 200 * time.Millisecond
 
 			pushUI := func(force bool) {
 				if !force && time.Since(lastUI) < uiInterval {
