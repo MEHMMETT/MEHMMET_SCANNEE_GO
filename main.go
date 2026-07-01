@@ -519,13 +519,11 @@ func main() {
 				}
 				pct := float64(d) / float64(total)
 
-				// fyne.Do تضمین می‌کنه تغییرات ویجت از thread اصلی UI اجرا بشه،
-				// نه از این goroutine پس‌زمینه.
-				fyne.Do(func() {
-					progress.SetValue(pct)
-					statsLabel.SetText(fmt.Sprintf("SCANNED: %d/%d   OPEN: %d   BEST: %s", d, total, o, best))
-					updateList()
-				})
+				// نکته‌ی اصلی رفع لگ همینه: این آپدیت فقط هر uiInterval یک‌بار
+				// اجرا میشه، نه برای هر IP — قبلاً همین باعث گیر کردن UI می‌شد.
+				progress.SetValue(pct)
+				statsLabel.SetText(fmt.Sprintf("SCANNED: %d/%d   OPEN: %d   BEST: %s", d, total, o, best))
+				updateList()
 			}
 
 		loop:
@@ -570,19 +568,17 @@ func main() {
 			b := bestMs
 			mu.Unlock()
 
-			fyne.Do(func() {
-				if o > 0 {
-					copyAllBtn.Show()
-				}
-				scanBtn.SetText("SCAN")
-				scanBtn.SetIcon(theme.MediaPlayIcon())
-				scanning = false
-				best := "—"
-				if b >= 0 {
-					best = fmt.Sprintf("%dms", b)
-				}
-				statsLabel.SetText(fmt.Sprintf("تموم شد — SCANNED: %d   OPEN: %d   BEST: %s", total, o, best))
-			})
+			if o > 0 {
+				copyAllBtn.Show()
+			}
+			scanBtn.SetText("SCAN")
+			scanBtn.SetIcon(theme.MediaPlayIcon())
+			scanning = false
+			best := "—"
+			if b >= 0 {
+				best = fmt.Sprintf("%dms", b)
+			}
+			statsLabel.SetText(fmt.Sprintf("تموم شد — SCANNED: %d   OPEN: %d   BEST: %s", total, o, best))
 		}()
 	}
 
