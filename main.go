@@ -5,6 +5,7 @@ import (
 	"image/color"
 	"math/rand"
 	"net"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -61,6 +62,10 @@ type ConfigItem struct {
 	Port   int
 	Config string
 }
+
+// الگویی برای پیدا کردن یه IP:PORT واقعی که کاربر مستقیم توی قالب پیست کرده،
+// برای وقتی که به‌جای {ip}/{port} از یه کانفیگ واقعی استفاده می‌کنه.
+var ipPortRe = regexp.MustCompile(`\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):(\d{1,5})\b`)
 
 // ─── تست TCP خام (بدون TLS) ─────────────────────────────────────────────────
 func pingTCP(ip string, port int, timeout time.Duration) (int64, bool) {
@@ -186,13 +191,11 @@ func section(titleText string, items ...fyne.CanvasObject) fyne.CanvasObject {
 
 	bg := canvas.NewRectangle(colCard)
 	bg.CornerRadius = 12
-	border := canvas.NewRectangle(color.Transparent)
-	border.StrokeColor = colBorder
-	border.StrokeWidth = 1
-	border.CornerRadius = 12
+	bg.StrokeColor = colBorder
+	bg.StrokeWidth = 1
 
 	inner := container.New(layout.NewCustomPaddedLayout(8, 8, 12, 12), body)
-	return container.New(layout.NewCustomPaddedLayout(4, 4, 6, 6), container.NewStack(bg, border, inner))
+	return container.New(layout.NewCustomPaddedLayout(4, 4, 6, 6), container.NewStack(bg, inner))
 }
 
 func main() {
@@ -226,7 +229,7 @@ func main() {
 
 	// ── Inputs ──
 	cidrEntry := widget.NewEntry()
-	cidrEntry.SetPlaceHolder("مثال: 104.16.0.0/24  (خالی = رندوم)")
+	cidrEntry.SetPlaceHolder("مثال: 104.16.0.0/24  —  خالی یعنی رندوم")
 
 	portEntry := widget.NewEntry()
 	portEntry.SetText("80")
@@ -248,11 +251,11 @@ func main() {
 		cidrEntry,
 		container.NewGridWithColumns(2,
 			container.NewVBox(
-				widget.NewLabelWithStyle("\u200fپورت‌ها (با کاما)", fyne.TextAlignTrailing, fyne.TextStyle{}),
+				widget.NewLabelWithStyle("پورت‌ها – با کاما جدا کن", fyne.TextAlignTrailing, fyne.TextStyle{}),
 				portEntry,
 			),
 			container.NewVBox(
-				widget.NewLabelWithStyle("\u200fتعداد (حالت رندوم)", fyne.TextAlignTrailing, fyne.TextStyle{}),
+				widget.NewLabelWithStyle("تعداد – حالت رندوم", fyne.TextAlignTrailing, fyne.TextStyle{}),
 				countEntry,
 			),
 		),
@@ -339,8 +342,12 @@ func main() {
 
 	// ═══════════════════ تب کانفیگ ═══════════════════
 
+	configHelp := widget.NewLabel("\u200fبه‌جای IP از {ip} و به‌جای پورت از {port} استفاده کن — یا خودش تشخیص میده اگه یه IP:PORT واقعی توی قالب باشه.")
+	configHelp.Wrapping = fyne.TextWrapWord
+	configHelp.Alignment = fyne.TextAlignTrailing
+
 	templateEntry := widget.NewMultiLineEntry()
-	templateEntry.SetPlaceHolder("قالب کانفیگ رو اینجا بذار. به‌جای IP از {ip} و به‌جای پورت از {port} استفاده کن.\nمثال:\ntrojan://pass@{ip}:{port}?security=tls&sni=example.com#MHMT-{ip}")
+	templateEntry.SetPlaceHolder("مثال: trojan://pass@1.2.3.4:443?sni=example.com#MHMT")
 	templateEntry.Wrapping = fyne.TextWrapWord
 	templateEntry.SetMinRowsVisible(3)
 
@@ -397,10 +404,14 @@ func main() {
 			configMsg.SetText("اول یه قالب کانفیگ وارد کن")
 			return
 		}
-		if !strings.Contains(tpl, "{ip}") {
-			configMsg.SetText("\u200fقالب باید حتماً {ip} داشته باشه، وگرنه همه‌ی کانفیگ‌ها یه IP ثابت می‌گیرن")
+
+		hasToken := strings.Contains(tpl, "{ip}")
+		match := ipPortRe.FindString(tpl) // مثلاً "104.16.0.5:443"
+		if !hasToken && match == "" {
+			configMsg.SetText("\u200fتوی قالب نه {ip} پیدا شد نه یه IP:PORT واقعی — یکی از این دو رو بذار")
 			return
 		}
+
 		mu.Lock()
 		src := make([]ScanResult, len(results))
 		copy(src, results)
@@ -413,8 +424,14 @@ func main() {
 
 		built := make([]ConfigItem, 0, len(src))
 		for _, r := range src {
-			cfg := strings.ReplaceAll(tpl, "{ip}", r.IP)
-			cfg = strings.ReplaceAll(cfg, "{port}", strconv.Itoa(r.Port))
+			cfg := tpl
+			if hasToken {
+				cfg = strings.ReplaceAll(cfg, "{ip}", r.IP)
+				cfg = strings.ReplaceAll(cfg, "{port}", strconv.Itoa(r.Port))
+			} else {
+				// جایگزینی خودکار همون IP:PORT واقعی که توی قالب پیدا شد
+				cfg = strings.Replace(cfg, match, fmt.Sprintf("%s:%d", r.IP, r.Port), 1)
+			}
 			built = append(built, ConfigItem{IP: r.IP, Port: r.Port, Config: cfg})
 		}
 
@@ -428,7 +445,7 @@ func main() {
 	})
 	genBtn.Importance = widget.HighImportance
 
-	configCard := section("قالب کانفیگ", templateEntry, genBtn, configMsg)
+	configCard := section("قالب کانفیگ", configHelp, templateEntry, genBtn, configMsg)
 
 	configBg := canvas.NewRectangle(colCard)
 	configBg.CornerRadius = 12
