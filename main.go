@@ -14,6 +14,7 @@ import (
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
@@ -190,7 +191,8 @@ func section(titleText string, items ...fyne.CanvasObject) fyne.CanvasObject {
 	border.StrokeWidth = 1
 	border.CornerRadius = 12
 
-	return container.NewPadded(container.NewStack(bg, border, container.NewPadded(body)))
+	inner := container.New(layout.NewCustomPaddedLayout(8, 8, 12, 12), body)
+	return container.New(layout.NewCustomPaddedLayout(4, 4, 6, 6), container.NewStack(bg, border, inner))
 }
 
 func main() {
@@ -202,20 +204,20 @@ func main() {
 	// ── Header ──
 	title := canvas.NewText("MHMTSCANNER", colAccent)
 	title.TextStyle = fyne.TextStyle{Bold: true}
-	title.TextSize = 24
+	title.TextSize = 19
 	title.Alignment = fyne.TextAlignCenter
 
 	sub := canvas.NewText("CF CLEAN IP SCANNER  •  RAW TCP", colFgDim)
-	sub.TextSize = 11
+	sub.TextSize = 9
 	sub.Alignment = fyne.TextAlignCenter
 
 	accentBar := canvas.NewRectangle(colAccent)
-	accentBar.SetMinSize(fyne.NewSize(0, 3))
+	accentBar.SetMinSize(fyne.NewSize(0, 2))
 	accentBar2 := canvas.NewRectangle(colAccent2)
-	accentBar2.SetMinSize(fyne.NewSize(0, 3))
+	accentBar2.SetMinSize(fyne.NewSize(0, 2))
 
 	header := container.NewVBox(
-		container.NewPadded(container.NewVBox(
+		container.New(layout.NewCustomPaddedLayout(4, 2, 6, 6), container.NewVBox(
 			container.NewCenter(title),
 			container.NewCenter(sub),
 		)),
@@ -232,21 +234,6 @@ func main() {
 	countEntry := widget.NewEntry()
 	countEntry.SetText("100")
 
-	inputsCard := section("تنظیمات اسکن",
-		widget.NewLabelWithStyle("رنج CIDR", fyne.TextAlignTrailing, fyne.TextStyle{}),
-		cidrEntry,
-		container.NewGridWithColumns(2,
-			container.NewVBox(
-				widget.NewLabelWithStyle("پورت‌ها (با کاما)", fyne.TextAlignTrailing, fyne.TextStyle{}),
-				portEntry,
-			),
-			container.NewVBox(
-				widget.NewLabelWithStyle("تعداد (حالت رندوم)", fyne.TextAlignTrailing, fyne.TextStyle{}),
-				countEntry,
-			),
-		),
-	)
-
 	// ── Stats ──
 	statsLabel := widget.NewLabelWithStyle("SCANNED: 0   OPEN: 0   BEST: —", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 	progress := widget.NewProgressBar()
@@ -256,9 +243,26 @@ func main() {
 	scanBtn := widget.NewButtonWithIcon("SCAN", theme.MediaPlayIcon(), nil)
 	scanBtn.Importance = widget.HighImportance
 
-	actionsCard := section("", scanBtn, progress, statsLabel)
+	settingsCard := section("تنظیمات اسکن",
+		widget.NewLabelWithStyle("رنج CIDR", fyne.TextAlignTrailing, fyne.TextStyle{}),
+		cidrEntry,
+		container.NewGridWithColumns(2,
+			container.NewVBox(
+				widget.NewLabelWithStyle("\u200fپورت‌ها (با کاما)", fyne.TextAlignTrailing, fyne.TextStyle{}),
+				portEntry,
+			),
+			container.NewVBox(
+				widget.NewLabelWithStyle("\u200fتعداد (حالت رندوم)", fyne.TextAlignTrailing, fyne.TextStyle{}),
+				countEntry,
+			),
+		),
+		widget.NewSeparator(),
+		scanBtn,
+		progress,
+		statsLabel,
+	)
 
-	top := container.NewVBox(header, inputsCard, actionsCard)
+	top := container.NewVBox(header, settingsCard)
 
 	// ── Shared state ──
 	var (
@@ -278,9 +282,8 @@ func main() {
 			ip.TextStyle = fyne.TextStyle{Monospace: true}
 			ping := canvas.NewText("0ms", colGood)
 			ping.TextStyle = fyne.TextStyle{Bold: true}
-			copyBtn := widget.NewButtonWithIcon("", theme.ContentCopyIcon(), func() {})
-			copyBtn.Importance = widget.LowImportance
-			right := container.NewHBox(ping, copyBtn)
+			copyIcon := widget.NewIcon(theme.ContentCopyIcon())
+			right := container.NewHBox(ping, copyIcon)
 			return container.NewBorder(nil, nil, nil, right, ip)
 		},
 		func(id widget.ListItemID, o fyne.CanvasObject) {},
@@ -310,15 +313,20 @@ func main() {
 			ip := box.Objects[0].(*widget.Label)
 			right := box.Objects[1].(*fyne.Container)
 			ping := right.Objects[0].(*canvas.Text)
-			copyBtn := right.Objects[1].(*widget.Button)
 
 			ip.SetText(fmt.Sprintf("%s:%d", r.IP, r.Port))
 			ping.Text = fmt.Sprintf("%dms", r.PingMs)
 			ping.Color = colGood
 			ping.Refresh()
-			copyBtn.OnTapped = func() {
+		}
+		// با لمس هر ردیف، فقط همون IP کپی میشه — سبک‌تر از یک دکمه‌ی
+		// جداگانه روی هر ردیف، برای اسکرول روون‌تر با لیست‌های بزرگ.
+		resultList.OnSelected = func(id widget.ListItemID) {
+			if id >= 0 && id < len(local) {
+				r := local[id]
 				w.Clipboard().SetContent(fmt.Sprintf("%s:%d", r.IP, r.Port))
 			}
+			resultList.UnselectAll()
 		}
 		resultList.Refresh()
 	}
@@ -326,7 +334,7 @@ func main() {
 	resultsBg := canvas.NewRectangle(colCard)
 	resultsBg.CornerRadius = 12
 	resultsWrap := container.NewPadded(container.NewStack(resultsBg, container.NewPadded(
-		container.NewBorder(nil, container.NewPadded(copyAllBtn), nil, nil, resultList),
+		container.NewBorder(container.NewPadded(copyAllBtn), nil, nil, nil, resultList),
 	)))
 
 	// ═══════════════════ تب کانفیگ ═══════════════════
@@ -334,7 +342,7 @@ func main() {
 	templateEntry := widget.NewMultiLineEntry()
 	templateEntry.SetPlaceHolder("قالب کانفیگ رو اینجا بذار. به‌جای IP از {ip} و به‌جای پورت از {port} استفاده کن.\nمثال:\ntrojan://pass@{ip}:{port}?security=tls&sni=example.com#MHMT-{ip}")
 	templateEntry.Wrapping = fyne.TextWrapWord
-	templateEntry.SetMinRowsVisible(5)
+	templateEntry.SetMinRowsVisible(3)
 
 	configMsg := widget.NewLabel("")
 	configMsg.Alignment = fyne.TextAlignTrailing
@@ -344,9 +352,8 @@ func main() {
 		func() fyne.CanvasObject {
 			lbl := widget.NewLabel("0.0.0.0:443")
 			lbl.TextStyle = fyne.TextStyle{Monospace: true}
-			copyBtn := widget.NewButtonWithIcon("", theme.ContentCopyIcon(), func() {})
-			copyBtn.Importance = widget.LowImportance
-			return container.NewBorder(nil, nil, nil, copyBtn, lbl)
+			copyIcon := widget.NewIcon(theme.ContentCopyIcon())
+			return container.NewBorder(nil, nil, nil, copyIcon, lbl)
 		},
 		func(id widget.ListItemID, o fyne.CanvasObject) {},
 	)
@@ -373,11 +380,13 @@ func main() {
 			c := local[id]
 			box := o.(*fyne.Container)
 			lbl := box.Objects[0].(*widget.Label)
-			copyBtn := box.Objects[1].(*widget.Button)
 			lbl.SetText(fmt.Sprintf("%s:%d", c.IP, c.Port))
-			copyBtn.OnTapped = func() {
-				w.Clipboard().SetContent(c.Config)
+		}
+		configList.OnSelected = func(id widget.ListItemID) {
+			if id >= 0 && id < len(local) {
+				w.Clipboard().SetContent(local[id].Config)
 			}
+			configList.UnselectAll()
 		}
 		configList.Refresh()
 	}
@@ -386,6 +395,10 @@ func main() {
 		tpl := templateEntry.Text
 		if strings.TrimSpace(tpl) == "" {
 			configMsg.SetText("اول یه قالب کانفیگ وارد کن")
+			return
+		}
+		if !strings.Contains(tpl, "{ip}") {
+			configMsg.SetText("\u200fقالب باید حتماً {ip} داشته باشه، وگرنه همه‌ی کانفیگ‌ها یه IP ثابت می‌گیرن")
 			return
 		}
 		mu.Lock()
@@ -420,7 +433,7 @@ func main() {
 	configBg := canvas.NewRectangle(colCard)
 	configBg.CornerRadius = 12
 	configListWrap := container.NewPadded(container.NewStack(configBg, container.NewPadded(
-		container.NewBorder(nil, container.NewPadded(copyAllConfigsBtn), nil, nil, configList),
+		container.NewBorder(container.NewPadded(copyAllConfigsBtn), nil, nil, nil, configList),
 	)))
 
 	configTab := container.NewBorder(configCard, nil, nil, nil, configListWrap)
