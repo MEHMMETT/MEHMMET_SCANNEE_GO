@@ -67,6 +67,21 @@ type ConfigItem struct {
 // برای وقتی که به‌جای {ip}/{port} از یه کانفیگ واقعی استفاده می‌کنه.
 var ipPortRe = regexp.MustCompile(`\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):(\d{1,5})\b`)
 
+// کیبوردهای فارسی گاهی رقم‌های ۰-۹ یا ٠-٩ رو به‌جای 0-9 وارد می‌کنن؛
+// این تابع همه رو به رقم انگلیسی معمولی تبدیل می‌کنه تا تشخیص IP خراب نشه.
+func normalizeDigits(s string) string {
+	r := []rune(s)
+	for i, c := range r {
+		switch {
+		case c >= '۰' && c <= '۹': // فارسی
+			r[i] = '0' + (c - '۰')
+		case c >= '٠' && c <= '٩': // عربی
+			r[i] = '0' + (c - '٠')
+		}
+	}
+	return string(r)
+}
+
 // ─── تست TCP خام (بدون TLS) ─────────────────────────────────────────────────
 func pingTCP(ip string, port int, timeout time.Duration) (int64, bool) {
 	t0 := time.Now()
@@ -342,7 +357,7 @@ func main() {
 
 	// ═══════════════════ تب کانفیگ ═══════════════════
 
-	configHelp := widget.NewLabel("\u200fبه‌جای IP از {ip} و به‌جای پورت از {port} استفاده کن — یا خودش تشخیص میده اگه یه IP:PORT واقعی توی قالب باشه.")
+	configHelp := widget.NewLabel("همون کانفیگ واقعی خودت رو پیست کن — IP و پورتش رو خودش پیدا و جایگزین می‌کنه.")
 	configHelp.Wrapping = fyne.TextWrapWord
 	configHelp.Alignment = fyne.TextAlignTrailing
 
@@ -399,7 +414,7 @@ func main() {
 	}
 
 	genBtn := widget.NewButtonWithIcon("ساخت کانفیگ از نتایج", theme.ViewRefreshIcon(), func() {
-		tpl := templateEntry.Text
+		tpl := normalizeDigits(templateEntry.Text)
 		if strings.TrimSpace(tpl) == "" {
 			configMsg.SetText("اول یه قالب کانفیگ وارد کن")
 			return
@@ -408,7 +423,11 @@ func main() {
 		hasToken := strings.Contains(tpl, "{ip}")
 		match := ipPortRe.FindString(tpl) // مثلاً "104.16.0.5:443"
 		if !hasToken && match == "" {
-			configMsg.SetText("\u200fتوی قالب نه {ip} پیدا شد نه یه IP:PORT واقعی — یکی از این دو رو بذار")
+			preview := tpl
+			if len(preview) > 40 {
+				preview = preview[:40] + "…"
+			}
+			configMsg.SetText(fmt.Sprintf("\u200fنه {ip} نه IP:PORT واقعی پیدا نشد. شروع قالب: %s", preview))
 			return
 		}
 
@@ -615,3 +634,4 @@ func main() {
 	w.SetContent(container.NewBorder(top, nil, nil, nil, tabs))
 	w.ShowAndRun()
 }
+
