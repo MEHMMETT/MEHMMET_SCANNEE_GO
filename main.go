@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"net"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -352,6 +353,9 @@ func main() {
 		copy(local, results)
 		mu.Unlock()
 
+		// آیپی‌های با پینگ کمتر (بهتر) اول لیست بیان
+		sort.Slice(local, func(i, j int) bool { return local[i].PingMs < local[j].PingMs })
+
 		resultList.Length = func() int { return len(local) }
 		resultList.UpdateItem = func(id widget.ListItemID, o fyne.CanvasObject) {
 			r := local[id]
@@ -463,6 +467,7 @@ func main() {
 		src := make([]ScanResult, len(results))
 		copy(src, results)
 		mu.Unlock()
+		sort.Slice(src, func(i, j int) bool { return src[i].PingMs < src[j].PingMs })
 
 		if len(src) == 0 {
 			configMsg.SetText("هنوز نتیجه‌ای نیست — اول اسکن بزن")
