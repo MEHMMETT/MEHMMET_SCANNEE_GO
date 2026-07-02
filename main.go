@@ -42,14 +42,17 @@ var cfSubnets = []string{
 
 // ─── پالت رنگی ────────────────────────────────────────────────────────────────
 var (
-	colBg     = color.NRGBA{8, 6, 14, 255}
-	colCard   = color.NRGBA{19, 15, 28, 255}
-	colBorder = color.NRGBA{42, 35, 64, 255}
-	colAccent = color.NRGBA{139, 63, 255, 255}
+	colBg      = color.NRGBA{8, 6, 14, 255}
+	colGlow    = color.NRGBA{46, 20, 82, 255} // نور بنفش محو پشت صفحه
+	colCard    = color.NRGBA{19, 15, 28, 255}
+	colBorder  = color.NRGBA{42, 35, 64, 255}
+	colAccent  = color.NRGBA{139, 63, 255, 255}
 	colAccent2 = color.NRGBA{0, 224, 190, 255}
-	colFg     = color.NRGBA{225, 219, 245, 255}
-	colFgDim  = color.NRGBA{148, 138, 176, 255}
-	colGood   = color.NRGBA{0, 224, 150, 255}
+	colFg      = color.NRGBA{225, 219, 245, 255}
+	colFgDim   = color.NRGBA{148, 138, 176, 255}
+	colGood    = color.NRGBA{0, 224, 150, 255}  // پینگ خوب
+	colMid     = color.NRGBA{255, 196, 0, 255}  // پینگ متوسط
+	colBad     = color.NRGBA{255, 76, 76, 255}  // پینگ بد
 )
 
 type ScanResult struct {
@@ -84,6 +87,18 @@ func normalizeDigits(s string) string {
 }
 
 // ─── تست TCP خام (بدون TLS) ─────────────────────────────────────────────────
+// رنگ‌بندی سه‌سطحی بر اساس پینگ: سریع=سبز، متوسط=زرد، کند=قرمز
+func pingColor(ms int64) color.Color {
+	switch {
+	case ms <= 150:
+		return colGood
+	case ms <= 500:
+		return colMid
+	default:
+		return colBad
+	}
+}
+
 func pingTCP(ip string, port int, timeout time.Duration) (int64, bool) {
 	t0 := time.Now()
 	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", ip, port), timeout)
@@ -366,7 +381,7 @@ func main() {
 
 			ip.SetText(fmt.Sprintf("%s:%d", r.IP, r.Port))
 			ping.Text = fmt.Sprintf("%dms", r.PingMs)
-			ping.Color = colGood
+			ping.Color = pingColor(r.PingMs)
 			ping.Refresh()
 		}
 		// با لمس هر ردیف، فقط همون IP کپی میشه — سبک‌تر از یک دکمه‌ی
@@ -664,7 +679,12 @@ func main() {
 		}()
 	}
 
-	w.SetContent(container.NewBorder(top, nil, nil, nil, tabs))
+	// نور بنفش محو که از پشت صفحه (نزدیک بالا) می‌تابه، روی پس‌زمینه‌ی تیره
+	bgGlow := canvas.NewRadialGradient(colGlow, colBg)
+	bgGlow.CenterOffsetX = 0
+	bgGlow.CenterOffsetY = -0.5
+
+	w.SetContent(container.NewStack(bgGlow, container.NewBorder(top, nil, nil, nil, tabs)))
 	w.ShowAndRun()
 }
 
