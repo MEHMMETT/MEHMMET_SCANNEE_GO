@@ -1,6 +1,7 @@
 package main
 
 import (
+	_ "embed"
 	"fmt"
 	"image/color"
 	"math/rand"
@@ -22,6 +23,12 @@ import (
 )
 
 // ─── رنج‌های رسمی کلودفلر ───────────────────────────────────────────────────
+// عکس پس‌زمینه از قبل رندر شده — به‌جای گرادیانت زنده که هر رفرش
+// دوباره محاسبه می‌شد و باعث لگ موقع تایپ می‌شد.
+//
+//go:embed background.png
+var bgPNGBytes []byte
+
 var cfSubnets = []string{
 	"103.21.244", "103.22.200", "103.22.201", "103.31.4", "103.31.5",
 	"104.16", "104.17", "104.18", "104.19", "104.20",
@@ -43,9 +50,9 @@ var cfSubnets = []string{
 // ─── پالت رنگی ────────────────────────────────────────────────────────────────
 var (
 	colBg      = color.NRGBA{8, 6, 14, 255}
-	colGlow    = color.NRGBA{46, 20, 82, 255} // نور بنفش محو پشت صفحه
-	colCard    = color.NRGBA{19, 15, 28, 255}
-	colBorder  = color.NRGBA{42, 35, 64, 255}
+	colGlow    = color.NRGBA{46, 20, 82, 255}   // نور بنفش محو پشت صفحه
+	colCard    = color.NRGBA{28, 22, 46, 150}   // نیمه‌شفاف برای حس شیشه‌ای
+	colBorder  = color.NRGBA{150, 130, 200, 90} // لبه‌ی روشن‌تر برای حس شیشه
 	colAccent  = color.NRGBA{139, 63, 255, 255}
 	colAccent2 = color.NRGBA{0, 224, 190, 255}
 	colFg      = color.NRGBA{225, 219, 245, 255}
@@ -679,12 +686,12 @@ func main() {
 		}()
 	}
 
-	// نور بنفش محو که از پشت صفحه (نزدیک بالا) می‌تابه، روی پس‌زمینه‌ی تیره
-	bgGlow := canvas.NewRadialGradient(colGlow, colBg)
-	bgGlow.CenterOffsetX = 0
-	bgGlow.CenterOffsetY = -0.5
+	// عکس پس‌زمینه‌ی از‌قبل‌رندرشده به‌جای گرادیانت زنده — سبک‌تره و
+	// دیگه هر تایپ یا چشمک مکان‌نما باعث محاسبه‌ی دوباره‌ش نمی‌شه.
+	bgRes := fyne.NewStaticResource("background.png", bgPNGBytes)
+	bgImage := canvas.NewImageFromResource(bgRes)
+	bgImage.FillMode = canvas.ImageFillStretch
 
-	w.SetContent(container.NewStack(bgGlow, container.NewBorder(top, nil, nil, nil, tabs)))
+	w.SetContent(container.NewStack(bgImage, container.NewBorder(top, nil, nil, nil, tabs)))
 	w.ShowAndRun()
 }
-
