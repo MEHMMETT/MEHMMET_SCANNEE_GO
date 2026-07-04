@@ -121,7 +121,7 @@ func pingTCP(ip string, port int, timeout time.Duration) (int64, bool) {
 }
 
 // ─── تولید IP از CIDR ────────────────────────────────────────────────────────
-func genFromCIDR(cidr string) []string {
+func genFromOneCIDR(cidr string) []string {
 	parts := strings.Split(cidr, "/")
 	if len(parts) != 2 {
 		return nil
@@ -160,6 +160,25 @@ func genFromCIDR(cidr string) []string {
 		}
 		out = append(out, fmt.Sprintf("%d.%d.%d.%d",
 			(full>>24)&255, (full>>16)&255, (full>>8)&255, d))
+	}
+	return out
+}
+
+// چند تا رنج CIDR که با کاما از هم جدا شدن رو با هم می‌سازه (بدون تکراری)
+func genFromCIDR(cidrList string) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, part := range strings.Split(cidrList, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		for _, ip := range genFromOneCIDR(part) {
+			if !seen[ip] {
+				seen[ip] = true
+				out = append(out, ip)
+			}
+		}
 	}
 	return out
 }
@@ -267,10 +286,67 @@ func main() {
 
 	// ── Inputs ──
 	cidrEntry := widget.NewEntry()
-	cidrEntry.SetPlaceHolder("مثال: 104.16.0.0/24  —  خالی یعنی رندوم")
+	cidrEntry.SetPlaceHolder("مثال: 104.16.0.0/24, 172.64.0.0/24  —  خالی یعنی رندوم")
+
+	// رنج‌های رسمی کلودفلر (طبق cloudflare.com/ips) — قابل انتخاب چندتایی
+	officialCFRanges := []string{
+		"173.245.48.0/20",
+		"103.21.244.0/22",
+		"103.22.200.0/22",
+		"103.31.4.0/22",
+		"141.101.64.0/18",
+		"108.162.192.0/18",
+		"190.93.240.0/20",
+		"188.114.96.0/20",
+		"197.234.240.0/22",
+		"198.41.128.0/17",
+		"162.158.0.0/15",
+		"104.16.0.0/13",
+		"104.24.0.0/14",
+		"172.64.0.0/13",
+		"131.0.72.0/22",
+	}
+	rangeChecks := make([]*widget.Check, 0, len(officialCFRanges))
+	rangeGrid := container.NewGridWithColumns(3)
+	for _, rng := range officialCFRanges {
+		chk := widget.NewCheck(rng, nil)
+		rangeChecks = append(rangeChecks, chk)
+		rangeGrid.Add(chk)
+	}
+	addSelectedRangesBtn := widget.NewButton("اضافه کردن انتخاب‌شده‌ها به کادر رنج", func() {
+		cur := strings.TrimSpace(cidrEntry.Text)
+		existing := map[string]bool{}
+		for _, p := range strings.Split(cur, ",") {
+			p = strings.TrimSpace(p)
+			if p != "" {
+				existing[p] = true
+			}
+		}
+		var toAdd []string
+		for i, chk := range rangeChecks {
+			if chk.Checked {
+				rng := officialCFRanges[i]
+				if !existing[rng] {
+					toAdd = append(toAdd, rng)
+					existing[rng] = true
+				}
+				chk.SetChecked(false) // برای استفاده‌ی دوباره خالی بشه
+			}
+		}
+		if len(toAdd) == 0 {
+			return
+		}
+		if cur == "" {
+			cidrEntry.SetText(strings.Join(toAdd, ", "))
+		} else {
+			cidrEntry.SetText(cur + ", " + strings.Join(toAdd, ", "))
+		}
+	})
+	addSelectedRangesBtn.Importance = widget.LowImportance
+	rangeSettingsBox := container.NewVBox(rangeGrid, addSelectedRangesBtn)
 
 	portEntry := widget.NewEntry()
-	portEntry.SetText("80")
+	portEntry.SetText("443")
 
 	countEntry := widget.NewEntry()
 	countEntry.SetText("100")
@@ -285,7 +361,10 @@ func main() {
 	scanBtn.Importance = widget.HighImportance
 
 	settingsBody := container.NewVBox(
-		widget.NewLabelWithStyle("رنج CIDR", fyne.TextAlignTrailing, fyne.TextStyle{}),
+		widget.NewLabelWithStyle("تنظیمات رنج", fyne.TextAlignTrailing, fyne.TextStyle{}),
+		rangeSettingsBox,
+		widget.NewSeparator(),
+		widget.NewLabelWithStyle("رنج CIDR – با کاما چند رنج جدا کن", fyne.TextAlignTrailing, fyne.TextStyle{}),
 		cidrEntry,
 		container.NewGridWithColumns(2,
 			container.NewVBox(

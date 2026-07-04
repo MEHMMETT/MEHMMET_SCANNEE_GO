@@ -39,7 +39,9 @@ jobs:
             -os android \
             -appID com.mhmtscanner.app \
             -name "MHMTSC" \
-            -icon Icon.png
+            -icon Icon.png \
+            -appVersion 1.1.0 \
+            -appBuild 2
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
