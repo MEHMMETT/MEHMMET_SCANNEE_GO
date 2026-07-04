@@ -307,11 +307,11 @@ func main() {
 		"131.0.72.0/22",
 	}
 	rangeChecks := make([]*widget.Check, 0, len(officialCFRanges))
-	rangeGrid := container.NewGridWithColumns(3)
+	rangeList := container.NewVBox()
 	for _, rng := range officialCFRanges {
 		chk := widget.NewCheck(rng, nil)
 		rangeChecks = append(rangeChecks, chk)
-		rangeGrid.Add(chk)
+		rangeList.Add(chk)
 	}
 	addSelectedRangesBtn := widget.NewButton("اضافه کردن انتخاب‌شده‌ها به کادر رنج", func() {
 		cur := strings.TrimSpace(cidrEntry.Text)
@@ -343,7 +343,24 @@ func main() {
 		}
 	})
 	addSelectedRangesBtn.Importance = widget.LowImportance
-	rangeSettingsBox := container.NewVBox(rangeGrid, addSelectedRangesBtn)
+
+	// جعبه‌ی جدا و جمع‌شونده برای رنج‌های پیشنهادی — پیش‌فرض بسته‌ست
+	// تا هم شلوغ نباشه هم موقع بسته بودن سربار رندر نداشته باشه.
+	rangeBody := container.NewVBox(widget.NewSeparator(), rangeList, addSelectedRangesBtn)
+	rangeBody.Hide()
+
+	var toggleRangeBtn *widget.Button
+	toggleRangeBtn = widget.NewButton("نمایش رنج‌های پیشنهادی ▼", func() {
+		if rangeBody.Visible() {
+			rangeBody.Hide()
+			toggleRangeBtn.SetText("نمایش رنج‌های پیشنهادی ▼")
+		} else {
+			rangeBody.Show()
+			toggleRangeBtn.SetText("جمع کردن رنج‌های پیشنهادی ▲")
+		}
+	})
+	toggleRangeBtn.Importance = widget.LowImportance
+	rangeSettingsBox := container.NewVBox(toggleRangeBtn, rangeBody)
 
 	portEntry := widget.NewEntry()
 	portEntry.SetText("443")
