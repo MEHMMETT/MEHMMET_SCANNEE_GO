@@ -184,6 +184,39 @@ func genFromCIDR(cidrList string) []string {
 }
 
 // ─── تولید IP رندوم از ساب‌نت‌های کلودفلر ────────────────────────────────────
+// لیست IP دلخواه کاربر رو پارس می‌کنه — با خط جدید، کاما یا فاصله جدا شده باشن مهم نیست
+func parseIPList(text string) []string {
+	text = normalizeDigits(text)
+	fields := strings.FieldsFunc(text, func(r rune) bool {
+		return r == ',' || r == '\n' || r == '\r' || r == '\t' || r == ' ' || r == ';'
+	})
+	seen := map[string]bool{}
+	var out []string
+	for _, f := range fields {
+		f = strings.TrimSpace(f)
+		if f == "" {
+			continue
+		}
+		octets := strings.Split(f, ".")
+		if len(octets) != 4 {
+			continue
+		}
+		valid := true
+		for _, o := range octets {
+			n, err := strconv.Atoi(o)
+			if err != nil || n < 0 || n > 255 {
+				valid = false
+				break
+			}
+		}
+		if valid && !seen[f] {
+			seen[f] = true
+			out = append(out, f)
+		}
+	}
+	return out
+}
+
 func genRandom(n int) []string {
 	seen := map[string]bool{}
 	out := make([]string, 0, n)
@@ -370,6 +403,24 @@ func main() {
 	})
 	toggleRangeBtn.Importance = widget.LowImportance
 	rangeSettingsBox := container.NewVBox(toggleRangeBtn, rangeBody)
+
+	// ── لیست IP دلخواه ── وقتی پر باشه، به‌جای CIDR/رندوم همین‌ها تست میشن
+	// (این بخش یه تب کامل و جدا برای خودش داره، پایین‌تر تعریف میشه)
+	customIPHelp := widget.NewLabel("هر IP رو توی یه خط جدا، یا با کاما از هم جدا کن. اگه اینجا چیزی بنویسی، اسکنر به‌جای رنج CIDR یا حالت رندوم، دقیقاً همین IPها رو تست می‌کنه.")
+	customIPHelp.Wrapping = fyne.TextWrapWord
+	customIPHelp.Alignment = fyne.TextAlignTrailing
+
+	customIPEntry := widget.NewMultiLineEntry()
+	customIPEntry.SetPlaceHolder("مثال:\n104.16.0.5\n104.16.0.9, 172.64.0.3")
+	customIPEntry.Wrapping = fyne.TextWrapWord
+	customIPEntry.SetMinRowsVisible(10)
+
+	clearCustomIPBtn := widget.NewButtonWithIcon("پاک کردن لیست", theme.DeleteIcon(), func() {
+		customIPEntry.SetText("")
+	})
+	clearCustomIPBtn.Importance = widget.LowImportance
+
+	customIPCard := section("لیست IP دلخواه", customIPHelp, customIPEntry, clearCustomIPBtn)
 
 	portEntry := widget.NewEntry()
 	portEntry.SetText("443")
@@ -639,6 +690,7 @@ func main() {
 	tabs := container.NewAppTabs(
 		container.NewTabItemWithIcon("نتایج", theme.SearchIcon(), resultsWrap),
 		container.NewTabItemWithIcon("کانفیگ", theme.SettingsIcon(), configTab),
+		container.NewTabItemWithIcon("IP دلخواه", theme.ContentAddIcon(), customIPCard),
 	)
 	tabs.SetTabLocation(container.TabLocationTop)
 
@@ -664,14 +716,18 @@ func main() {
 		}
 
 		var ips []string
+		customIPs := parseIPList(customIPEntry.Text)
 		cidr := strings.TrimSpace(cidrEntry.Text)
-		if cidr != "" {
+		switch {
+		case len(customIPs) > 0:
+			ips = customIPs
+		case cidr != "":
 			ips = genFromCIDR(cidr)
 			if len(ips) == 0 {
 				statsLabel.SetText("رنج CIDR معتبر نیست")
 				return
 			}
-		} else {
+		default:
 			n, _ := strconv.Atoi(countEntry.Text)
 			if n <= 0 {
 				n = 100
