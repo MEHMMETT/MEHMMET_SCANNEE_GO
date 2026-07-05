@@ -319,7 +319,7 @@ func main() {
 
 	// ── Inputs ──
 	cidrEntry := widget.NewEntry()
-	cidrEntry.SetPlaceHolder("مثال: 104.16.0.0/24, 172.64.0.0/24  —  خالی یعنی رندوم")
+	cidrEntry.SetPlaceHolder("مثال: 104.16.0.0/24, 172.64.0.0/24. اگه خالی بذاری یعنی رندوم.")
 
 	// رنج‌های رسمی کلودفلر (طبق cloudflare.com/ips) — قابل انتخاب چندتایی
 	officialCFRanges := []string{
@@ -406,7 +406,7 @@ func main() {
 
 	// ── لیست IP دلخواه ── وقتی پر باشه، به‌جای CIDR/رندوم همین‌ها تست میشن
 	// (این بخش یه تب کامل و جدا برای خودش داره، پایین‌تر تعریف میشه)
-	customIPHelp := widget.NewLabel("هر آی‌پی رو توی یه خط جدا، یا با کاما از هم جدا کن. اگه اینجا چیزی بنویسی، اسکنر به‌جای رنج یا حالت رندوم، دقیقاً همین آی‌پی‌ها رو تست می‌کنه.")
+	customIPHelp := widget.NewLabel("اگه هر آی‌پی رو توی یه خط جدا یا با کاما از هم جدا کنی، اسکنر به‌جای رنج یا حالت رندوم، آی‌پی‌های دلخواه تو رو فقط تست می‌کنه.")
 	customIPHelp.Wrapping = fyne.TextWrapWord
 	customIPHelp.Alignment = fyne.TextAlignTrailing
 
@@ -567,7 +567,7 @@ func main() {
 
 	// ═══════════════════ تب کانفیگ ═══════════════════
 
-	configHelp := widget.NewLabel("همون کانفیگ واقعی خودت رو پیست کن — آی‌پی و پورتش رو خودش پیدا و جایگزین می‌کنه.")
+	configHelp := widget.NewLabel("کانفیگتو پیست کن، به تعداد آی‌پی‌های نتایج کانفیگ ببر.")
 	configHelp.Wrapping = fyne.TextWrapWord
 	configHelp.Alignment = fyne.TextAlignTrailing
 
@@ -648,7 +648,7 @@ func main() {
 		sort.Slice(src, func(i, j int) bool { return src[i].PingMs < src[j].PingMs })
 
 		if len(src) == 0 {
-			configMsg.SetText("هنوز نتیجه‌ای نیست — اول اسکن بزن")
+			configMsg.SetText("هنوز نتیجه‌ای نیست، اول اسکن بزن")
 			return
 		}
 
@@ -843,16 +843,14 @@ func main() {
 			if b >= 0 {
 				best = fmt.Sprintf("%dms", b)
 			}
-			statsLabel.SetText(fmt.Sprintf("تموم شد — SCANNED: %d   OPEN: %d   BEST: %s", total, o, best))
+			statsLabel.SetText(fmt.Sprintf("تموم شد. SCANNED: %d   OPEN: %d   BEST: %s", total, o, best))
 		}()
 	}
 
-	// عکس پس‌زمینه‌ی از‌قبل‌رندرشده به‌جای گرادیانت زنده — سبک‌تره و
-	// دیگه هر تایپ یا چشمک مکان‌نما باعث محاسبه‌ی دوباره‌ش نمی‌شه.
-	bgRes := fyne.NewStaticResource("background.png", bgPNGBytes)
-	bgImage := canvas.NewImageFromResource(bgRes)
-	bgImage.FillMode = canvas.ImageFillStretch
+	// موقتاً برای تست لگ: به‌جای عکس، یه رنگ ساده (بدون تصویر) —
+	// اگه لگ بهتر شد یعنی خود عکس مقصر بوده.
+	bgFlat := canvas.NewRectangle(colGlow)
 
-	w.SetContent(container.NewStack(bgImage, container.NewBorder(top, nil, nil, nil, tabs)))
+	w.SetContent(container.NewStack(bgFlat, container.NewBorder(top, nil, nil, nil, tabs)))
 	w.ShowAndRun()
 }
