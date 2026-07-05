@@ -51,7 +51,7 @@ var cfSubnets = []string{
 var (
 	colBg      = color.NRGBA{8, 6, 14, 255}
 	colGlow    = color.NRGBA{46, 20, 82, 255}   // نور بنفش محو پشت صفحه
-	colCard    = color.NRGBA{28, 22, 46, 150}   // نیمه‌شفاف برای حس شیشه‌ای
+	colCard    = color.NRGBA{24, 19, 40, 255}   // موقتاً کدر برای تست لگ (قبلاً 150 نیمه‌شفاف بود)
 	colBorder  = color.NRGBA{150, 130, 200, 90} // لبه‌ی روشن‌تر برای حس شیشه
 	colAccent  = color.NRGBA{139, 63, 255, 255}
 	colAccent2 = color.NRGBA{0, 224, 190, 255}
