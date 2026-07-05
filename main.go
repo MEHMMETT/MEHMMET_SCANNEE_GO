@@ -346,7 +346,13 @@ func main() {
 
 	// جعبه‌ی جدا و جمع‌شونده برای رنج‌های پیشنهادی — پیش‌فرض بسته‌ست
 	// تا هم شلوغ نباشه هم موقع بسته بودن سربار رندر نداشته باشه.
-	rangeBody := container.NewVBox(widget.NewSeparator(), rangeList, addSelectedRangesBtn)
+	// خود لیست چک‌باکس‌ها یه اسکرول کوچیک و مستقل داره (ارتفاع ثابت)
+	// تا وقتی باز میشه، کل صفحه بلند نشه و بقیه‌ی بخش‌ها (دکمه‌ی اسکن،
+	// تب‌ها) همیشه در دسترس بمونن.
+	rangeScroll := container.NewVScroll(rangeList)
+	rangeScroll.SetMinSize(fyne.NewSize(0, 260))
+
+	rangeBody := container.NewVBox(widget.NewSeparator(), rangeScroll, addSelectedRangesBtn)
 	rangeBody.Hide()
 
 	var toggleRangeBtn *widget.Button
@@ -788,12 +794,6 @@ func main() {
 	bgImage := canvas.NewImageFromResource(bgRes)
 	bgImage.FillMode = canvas.ImageFillStretch
 
-	// بخش تنظیمات (بالای صفحه) خودش اسکرول جدا داره، تا وقتی محتواش
-	// (مثلاً با باز کردن رنج‌های پیشنهادی) خیلی بلند بشه، بشه توش اسکرول کرد
-	// بدون اینکه به اسکرول لیست‌های نتایج/کانفیگ پایین‌تر آسیبی بزنه.
-	topScroll := container.NewVScroll(top)
-	topScroll.SetMinSize(fyne.NewSize(0, 560))
-
-	w.SetContent(container.NewStack(bgImage, container.NewBorder(topScroll, nil, nil, nil, tabs)))
+	w.SetContent(container.NewStack(bgImage, container.NewBorder(top, nil, nil, nil, tabs)))
 	w.ShowAndRun()
 }
