@@ -406,7 +406,7 @@ func main() {
 
 	// ── لیست IP دلخواه ── وقتی پر باشه، به‌جای CIDR/رندوم همین‌ها تست میشن
 	// (این بخش یه تب کامل و جدا برای خودش داره، پایین‌تر تعریف میشه)
-	customIPHelp := widget.NewLabel("هر IP رو توی یه خط جدا، یا با کاما از هم جدا کن. اگه اینجا چیزی بنویسی، اسکنر به‌جای رنج CIDR یا حالت رندوم، دقیقاً همین IPها رو تست می‌کنه.")
+	customIPHelp := widget.NewLabel("هر آی‌پی رو توی یه خط جدا، یا با کاما از هم جدا کن. اگه اینجا چیزی بنویسی، اسکنر به‌جای رنج یا حالت رندوم، دقیقاً همین آی‌پی‌ها رو تست می‌کنه.")
 	customIPHelp.Wrapping = fyne.TextWrapWord
 	customIPHelp.Alignment = fyne.TextAlignTrailing
 
@@ -420,7 +420,7 @@ func main() {
 	})
 	clearCustomIPBtn.Importance = widget.LowImportance
 
-	customIPCard := section("لیست IP دلخواه", customIPHelp, customIPEntry, clearCustomIPBtn)
+	customIPCard := section("لیست آی‌پی دلخواه", customIPHelp, customIPEntry, clearCustomIPBtn)
 
 	portEntry := widget.NewEntry()
 	portEntry.SetText("443")
@@ -514,7 +514,7 @@ func main() {
 		func(id widget.ListItemID, o fyne.CanvasObject) {},
 	)
 
-	copyAllBtn := widget.NewButtonWithIcon("کپی همه IP", theme.ContentCopyIcon(), func() {
+	copyAllBtn := widget.NewButtonWithIcon("کپی همه آی‌پی", theme.ContentCopyIcon(), func() {
 		mu.Lock()
 		lines := make([]string, len(results))
 		for i, r := range results {
@@ -567,7 +567,7 @@ func main() {
 
 	// ═══════════════════ تب کانفیگ ═══════════════════
 
-	configHelp := widget.NewLabel("همون کانفیگ واقعی خودت رو پیست کن — IP و پورتش رو خودش پیدا و جایگزین می‌کنه.")
+	configHelp := widget.NewLabel("همون کانفیگ واقعی خودت رو پیست کن — آی‌پی و پورتش رو خودش پیدا و جایگزین می‌کنه.")
 	configHelp.Wrapping = fyne.TextWrapWord
 	configHelp.Alignment = fyne.TextAlignTrailing
 
@@ -637,7 +637,7 @@ func main() {
 			if len(preview) > 40 {
 				preview = preview[:40] + "…"
 			}
-			configMsg.SetText(fmt.Sprintf("\u200fنه {ip} نه IP:PORT واقعی پیدا نشد. شروع قالب: %s", preview))
+			configMsg.SetText(fmt.Sprintf("\u200fنه {ip} نه آدرس آی‌پی:پورت واقعی پیدا نشد. شروع قالب: %s", preview))
 			return
 		}
 
@@ -690,7 +690,7 @@ func main() {
 	tabs := container.NewAppTabs(
 		container.NewTabItemWithIcon("نتایج", theme.SearchIcon(), resultsWrap),
 		container.NewTabItemWithIcon("کانفیگ", theme.SettingsIcon(), configTab),
-		container.NewTabItemWithIcon("IP دلخواه", theme.ContentAddIcon(), customIPCard),
+		container.NewTabItemWithIcon("آی‌پی دلخواه", theme.ContentAddIcon(), customIPCard),
 	)
 	tabs.SetTabLocation(container.TabLocationTop)
 
