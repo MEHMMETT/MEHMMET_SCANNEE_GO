@@ -412,15 +412,19 @@ func main() {
 
 	customIPEntry := widget.NewMultiLineEntry()
 	customIPEntry.SetPlaceHolder("مثال:\n104.16.0.5\n104.16.0.9, 172.64.0.3")
-	customIPEntry.Wrapping = fyne.TextWrapWord
-	customIPEntry.SetMinRowsVisible(10)
+	customIPEntry.Wrapping = fyne.TextWrapOff // چون خط‌شکنی خودکار برای صدها خط سنگینه و باعث گیر کردن میشد
+
+	// اسکرول مستقل و مخصوص همین باکس — دقیقاً مثل رنج‌های پیشنهادی،
+	// تا بشه هر وقت خواستی به بالای لیست IPهایی که نوشتی برگردی.
+	customIPScroll := container.NewVScroll(customIPEntry)
+	customIPScroll.SetMinSize(fyne.NewSize(0, 280))
 
 	clearCustomIPBtn := widget.NewButtonWithIcon("پاک کردن لیست", theme.DeleteIcon(), func() {
 		customIPEntry.SetText("")
 	})
 	clearCustomIPBtn.Importance = widget.LowImportance
 
-	customIPCard := section("لیست آی‌پی دلخواه", customIPHelp, customIPEntry, clearCustomIPBtn)
+	customIPCard := section("لیست آی‌پی دلخواه", customIPHelp, customIPScroll, clearCustomIPBtn)
 
 	portEntry := widget.NewEntry()
 	portEntry.SetText("443")
@@ -847,10 +851,12 @@ func main() {
 		}()
 	}
 
-	// موقتاً برای تست لگ: به‌جای عکس، یه رنگ ساده (بدون تصویر) —
-	// اگه لگ بهتر شد یعنی خود عکس مقصر بوده.
-	bgFlat := canvas.NewRectangle(colGlow)
+	// عکس پس‌زمینه‌ی از‌قبل‌رندرشده — تست نشون داد کدر کردنش کمکی نکرد،
+	// پس برگشتیم به همین حالت.
+	bgRes := fyne.NewStaticResource("background.png", bgPNGBytes)
+	bgImage := canvas.NewImageFromResource(bgRes)
+	bgImage.FillMode = canvas.ImageFillStretch
 
-	w.SetContent(container.NewStack(bgFlat, container.NewBorder(top, nil, nil, nil, tabs)))
+	w.SetContent(container.NewStack(bgImage, container.NewBorder(top, nil, nil, nil, tabs)))
 	w.ShowAndRun()
 }
