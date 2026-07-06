@@ -404,27 +404,7 @@ func main() {
 	toggleRangeBtn.Importance = widget.LowImportance
 	rangeSettingsBox := container.NewVBox(toggleRangeBtn, rangeBody)
 
-	// ── لیست IP دلخواه ── وقتی پر باشه، به‌جای CIDR/رندوم همین‌ها تست میشن
-	// (این بخش یه تب کامل و جدا برای خودش داره، پایین‌تر تعریف میشه)
-	customIPHelp := widget.NewLabel("اگه هر آی‌پی رو توی یه خط جدا یا با کاما از هم جدا کنی، اسکنر به‌جای رنج یا حالت رندوم، آی‌پی‌های دلخواه تو رو فقط تست می‌کنه.")
-	customIPHelp.Wrapping = fyne.TextWrapWord
-	customIPHelp.Alignment = fyne.TextAlignTrailing
-
-	customIPEntry := widget.NewMultiLineEntry()
-	customIPEntry.SetPlaceHolder("مثال:\n104.16.0.5\n104.16.0.9, 172.64.0.3")
-	customIPEntry.Wrapping = fyne.TextWrapOff // چون خط‌شکنی خودکار برای صدها خط سنگینه و باعث گیر کردن میشد
-
-	// اسکرول مستقل و مخصوص همین باکس — دقیقاً مثل رنج‌های پیشنهادی،
-	// تا بشه هر وقت خواستی به بالای لیست IPهایی که نوشتی برگردی.
-	customIPScroll := container.NewVScroll(customIPEntry)
-	customIPScroll.SetMinSize(fyne.NewSize(0, 280))
-
-	clearCustomIPBtn := widget.NewButtonWithIcon("پاک کردن لیست", theme.DeleteIcon(), func() {
-		customIPEntry.SetText("")
-	})
-	clearCustomIPBtn.Importance = widget.LowImportance
-
-	customIPCard := section("لیست آی‌پی دلخواه", customIPHelp, customIPScroll, clearCustomIPBtn)
+	// ── لیست IP دلخواه ساخته میشه پایین‌تر، بعد از تعریف state مشترک ──
 
 	portEntry := widget.NewEntry()
 	portEntry.SetText("443")
@@ -495,12 +475,112 @@ func main() {
 
 	// ── Shared state ──
 	var (
-		results  []ScanResult
-		configs  []ConfigItem
-		mu       sync.Mutex
-		stopCh   chan struct{}
-		scanning bool
+		results   []ScanResult
+		configs   []ConfigItem
+		customIPs []string
+		mu        sync.Mutex
+		stopCh    chan struct{}
+		scanning  bool
 	)
+
+	// ═══════════════════ تب آی‌پی دلخواه (لیست‌محور) ═══════════════════
+	// قبلاً این تب یه Entry متنی چندخطی بود که کل چندصد IP رو به‌صورت یه
+	// رشته‌ی متنی نگه می‌داشت. دو تا مشکل داشت: چون Entry یه فیلد قابل‌ویرایشه،
+	// کشیدن انگشت روش به‌جای اسکرول به‌عنوان «انتخاب متن» تفسیر می‌شد (همون
+	// کادر آبی)، و چون کل متن باید هر بار پردازش/رندر بشه، با ~۲۵۰ آی‌پی لگ
+	// می‌زد. راه‌حل: به‌جای Entry، از یه widget.List واقعی استفاده می‌کنیم که
+	// فقط ردیف‌های قابل‌مشاهده رو رندر می‌کنه (نه قابل انتخاب متنه، نه کل
+	// متن رو یکجا پردازش می‌کنه)، و اضافه‌کردن از طریق دکمه‌ی «افزودن از
+	// کلیپ‌بورد» انجام میشه، نه پیست مستقیم توی یه کادر متنی.
+
+	customIPHelp := widget.NewLabel("آی‌پی‌ها یا رنج‌هارو کپی کن، بعد بزن «افزودن از کلیپ‌بورد». با لمس هر ردیف، همون آی‌پی از لیست حذف میشه.")
+	customIPHelp.Wrapping = fyne.TextWrapWord
+	customIPHelp.Alignment = fyne.TextAlignTrailing
+
+	customIPCountLabel := widget.NewLabelWithStyle("0 آی‌پی", fyne.TextAlignTrailing, fyne.TextStyle{Bold: true})
+
+	customIPList := widget.NewList(
+		func() int { return 0 },
+		func() fyne.CanvasObject {
+			lbl := widget.NewLabel("0.0.0.0")
+			lbl.TextStyle = fyne.TextStyle{Monospace: true}
+			delIcon := widget.NewIcon(theme.ContentClearIcon())
+			return container.NewHBox(lbl, layout.NewSpacer(), delIcon)
+		},
+		func(id widget.ListItemID, o fyne.CanvasObject) {},
+	)
+
+	var updateCustomIPList func()
+	updateCustomIPList = func() {
+		mu.Lock()
+		local := make([]string, len(customIPs))
+		copy(local, customIPs)
+		mu.Unlock()
+
+		customIPCountLabel.SetText(fmt.Sprintf("%d آی‌پی", len(local)))
+
+		customIPList.Length = func() int { return len(local) }
+		customIPList.UpdateItem = func(id widget.ListItemID, o fyne.CanvasObject) {
+			box := o.(*fyne.Container)
+			lbl := box.Objects[0].(*widget.Label)
+			lbl.SetText(local[id])
+		}
+		// لمس هر ردیف = حذف همون آی‌پی — سبک‌تر از یه دکمه‌ی جدا روی هر ردیف
+		customIPList.OnSelected = func(id widget.ListItemID) {
+			mu.Lock()
+			if id >= 0 && id < len(customIPs) {
+				customIPs = append(customIPs[:id], customIPs[id+1:]...)
+			}
+			mu.Unlock()
+			customIPList.UnselectAll()
+			updateCustomIPList()
+		}
+		customIPList.Refresh()
+	}
+
+	addCustomIPsFromClipboard := widget.NewButtonWithIcon("افزودن از کلیپ‌بورد", theme.ContentPasteIcon(), func() {
+		added := parseIPList(w.Clipboard().Content())
+		if len(added) == 0 {
+			customIPCountLabel.SetText("چیزی توی کلیپ‌بورد پیدا نشد")
+			return
+		}
+		mu.Lock()
+		seen := map[string]bool{}
+		for _, ip := range customIPs {
+			seen[ip] = true
+		}
+		for _, ip := range added {
+			if !seen[ip] {
+				seen[ip] = true
+				customIPs = append(customIPs, ip)
+			}
+		}
+		mu.Unlock()
+		updateCustomIPList()
+	})
+	addCustomIPsFromClipboard.Importance = widget.HighImportance
+
+	clearCustomIPsBtn := widget.NewButtonWithIcon("پاک کردن همه", theme.DeleteIcon(), func() {
+		mu.Lock()
+		customIPs = nil
+		mu.Unlock()
+		updateCustomIPList()
+	})
+	clearCustomIPsBtn.Importance = widget.LowImportance
+
+	updateCustomIPList()
+
+	customIPTopCard := section("لیست آی‌پی دلخواه",
+		customIPHelp,
+		container.NewGridWithColumns(2, addCustomIPsFromClipboard, clearCustomIPsBtn),
+		customIPCountLabel,
+	)
+
+	customIPListBg := canvas.NewRectangle(colCard)
+	customIPListBg.CornerRadius = 12
+	customIPListWrap := container.NewPadded(container.NewStack(customIPListBg, container.NewPadded(customIPList)))
+
+	customIPCard := container.NewBorder(customIPTopCard, nil, nil, nil, customIPListWrap)
 
 	// ═══════════════════ تب نتایج IP ═══════════════════
 
@@ -720,11 +800,14 @@ func main() {
 		}
 
 		var ips []string
-		customIPs := parseIPList(customIPEntry.Text)
+		mu.Lock()
+		selectedCustomIPs := make([]string, len(customIPs))
+		copy(selectedCustomIPs, customIPs)
+		mu.Unlock()
 		cidr := strings.TrimSpace(cidrEntry.Text)
 		switch {
-		case len(customIPs) > 0:
-			ips = customIPs
+		case len(selectedCustomIPs) > 0:
+			ips = selectedCustomIPs
 		case cidr != "":
 			ips = genFromCIDR(cidr)
 			if len(ips) == 0 {
