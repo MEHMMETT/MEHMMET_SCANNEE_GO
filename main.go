@@ -51,8 +51,16 @@ var cfSubnets = []string{
 var (
 	colBg      = color.NRGBA{8, 6, 14, 255}
 	colGlow    = color.NRGBA{46, 20, 82, 255}   // نور بنفش محو پشت صفحه
-	colCard    = color.NRGBA{28, 22, 46, 150}   // نیمه‌شفاف برای حس شیشه‌ای
-	colBorder  = color.NRGBA{150, 130, 200, 90} // لبه‌ی روشن‌تر برای حس شیشه
+	// قبلاً colCard و colBorder نیمه‌شفاف بودن (آلفای ۱۵۰ و ۹۰) که یعنی هر فریم
+	// Fyne باید این‌هارو دوباره روی پس‌زمینه بلند می‌کرد (alpha blending) —
+	// این کار جدا از خودِ عکس پس‌زمینه انجام میشه و مشکوکه به لگ تایپ.
+	// این‌جا همون جلوه رو یه‌بار از‌قبل با پس‌زمینه ترکیب کردیم و به‌صورت
+	// یه رنگ کدر (آلفا=۲۵۵) گذاشتیم — ظاهرش تقریباً یکیه ولی دیگه لازم نیست
+	// هر فریم دوباره محاسبه بشه. اگه لازم شد برگردیم، مقادیر قبلی این بودن:
+	// colCard   = color.NRGBA{28, 22, 46, 150}
+	// colBorder = color.NRGBA{150, 130, 200, 90}
+	colCard    = color.NRGBA{30, 20, 48, 255}   // نیمه‌شفاف قبلی، حالا کدر برای حس شیشه‌ای
+	colBorder  = color.NRGBA{72, 56, 106, 255}  // لبه‌ی روشن‌تر، حالا کدر
 	colAccent  = color.NRGBA{139, 63, 255, 255}
 	colAccent2 = color.NRGBA{0, 224, 190, 255}
 	colFg      = color.NRGBA{225, 219, 245, 255}
@@ -657,7 +665,11 @@ func main() {
 
 	templateEntry := widget.NewMultiLineEntry()
 	templateEntry.SetPlaceHolder("مثال: trojan://pass@1.2.3.4:443?sni=example.com#MHMT")
-	templateEntry.Wrapping = fyne.TextWrapWord
+	// نکته‌ی عملکردی: TextWrapWord هر بار باید مرز کلمه‌ها رو اسکن کنه که برای
+	// یه رشته‌ی کانفیگ (که معمولاً فاصله نداره، مثل trojan://...) گرون‌تره.
+	// TextWrapBreak فقط از روی عرض می‌شکنه، محاسبه‌ش سبک‌تره و برای این نوع متن
+	// (بدون فاصله) ظاهرش عملاً یکیه — پس فقط لگ تایپ کم میشه، چیزی از ظاهر عوض نمیشه.
+	templateEntry.Wrapping = fyne.TextWrapBreak
 	templateEntry.SetMinRowsVisible(3)
 
 	configMsg := widget.NewLabel("")
