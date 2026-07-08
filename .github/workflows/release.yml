@@ -27,7 +27,9 @@ jobs:
       - name: Tidy modules
         run: go mod tidy
       - name: Build Linux
-        run: fyne package -os linux -name mhmtscanner -appVersion "${{ steps.version.outputs.version }}"
+        run: fyne package -os linux -name "MHMT Scanner" -appVersion "${{ steps.version.outputs.version }}"
+      - name: Ensure output filename
+        run: mv *.tar.xz mhmtscanner.tar.xz
       - uses: actions/upload-artifact@v4
         with:
           name: linux-build
@@ -49,7 +51,10 @@ jobs:
       - name: Tidy modules
         run: go mod tidy
       - name: Build Windows
-        run: fyne package -os windows -name mhmtscanner -appVersion "${{ steps.version.outputs.version }}"
+        run: fyne package -os windows -name "MHMT Scanner" -appVersion "${{ steps.version.outputs.version }}"
+      - name: Ensure output filename
+        shell: bash
+        run: mv *.exe mhmtscanner.exe
       - uses: actions/upload-artifact@v4
         with:
           name: windows-build
