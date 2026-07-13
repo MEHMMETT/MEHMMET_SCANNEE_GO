@@ -1,7 +1,6 @@
 package main
 
 import (
-        "crypto/tls"
 	_ "embed"
 	"fmt"
 	"image/color"
@@ -129,13 +128,6 @@ func pingTCP(ip string, port int, timeout time.Duration) (int64, bool) {
 		if !strings.HasPrefix(string(buf[:n]), "HTTP/") {
 			return 0, false
 		}
-	} else if port == 443 {
-		conn.SetDeadline(time.Now().Add(timeout))
-		tlsConn := tls.Client(conn, &tls.Config{InsecureSkipVerify: true})
-		if err := tlsConn.Handshake(); err != nil {
-			return 0, false
-		}
-	}
 
 	ms := time.Since(t0).Milliseconds()
 	if ms < 5 {
