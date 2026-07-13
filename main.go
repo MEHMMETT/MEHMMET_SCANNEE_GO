@@ -51,15 +51,15 @@ var cfSubnets = []string{
 var (
 	colBg      = color.NRGBA{8, 6, 14, 255}
 	colGlow    = color.NRGBA{46, 20, 82, 255}   // نور بنفش محو پشت صفحه
-	colCard    = color.NRGBA{28, 22, 46, 100}  // شفاف‌تر برای حس شیشه‌ای بیشتر (قبلاً آلفا=۱۵۰)
+	colCard    = color.NRGBA{28, 22, 46, 100}   // شفاف‌تر برای حس شیشه‌ای بیشتر (قبلاً آلفا=۱۵۰)
 	colBorder  = color.NRGBA{150, 130, 200, 60} // لبه‌ی روشن‌تر خیلی شفاف (قبلاً آلفا=۹۰)
 	colAccent  = color.NRGBA{139, 63, 255, 255}
 	colAccent2 = color.NRGBA{0, 224, 190, 255}
 	colFg      = color.NRGBA{225, 219, 245, 255}
 	colFgDim   = color.NRGBA{148, 138, 176, 255}
-	colGood    = color.NRGBA{0, 224, 150, 255}  // پینگ خوب
-	colMid     = color.NRGBA{255, 196, 0, 255}  // پینگ متوسط
-	colBad     = color.NRGBA{255, 76, 76, 255}  // پینگ بد
+	colGood    = color.NRGBA{0, 224, 150, 255} // پینگ خوب
+	colMid     = color.NRGBA{255, 196, 0, 255} // پینگ متوسط
+	colBad     = color.NRGBA{255, 76, 76, 255} // پینگ بد
 )
 
 type ScanResult struct {
@@ -129,6 +129,7 @@ func pingTCP(ip string, port int, timeout time.Duration) (int64, bool) {
 			return 0, false
 		}
 
+	}
 	ms := time.Since(t0).Milliseconds()
 	if ms < 5 {
 		return 0, false
