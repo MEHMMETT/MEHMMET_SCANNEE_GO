@@ -114,22 +114,26 @@ func pingTCP(ip string, port int, timeout time.Duration) (int64, bool) {
 	}
 	defer conn.Close()
 
-	if port == 80 {
+	if port == 80  {
 		conn.SetDeadline(time.Now().Add(timeout))
 		req := fmt.Sprintf("HEAD / HTTP/1.1\r\nHost: %s\r\nConnection: close\r\n\r\n", ip)
 		if _, err := conn.Write([]byte(req)); err != nil {
 			return 0, false
 		}
-		buf := make([]byte, 16)
+		buf := make([]byte, 512)
 		n, err := conn.Read(buf)
 		if err != nil || n == 0 {
 			return 0, false
-		}
-		if !strings.HasPrefix(string(buf[:n]), "HTTP/") {
-			return 0, false
+               }
+                resp := strings.ToLower(string(buf[:n]))
+			if !strings.HasPrefix(resp, "http/") {
+				return 0, false
+			}
+			if !strings.Contains(resp, "cloudflare") && !strings.Contains(resp, "cf-ray") {
+				return 0, false
+			}
 		}
 
-	}
 	ms := time.Since(t0).Milliseconds()
 	if ms < 5 {
 		return 0, false
