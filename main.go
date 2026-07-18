@@ -78,6 +78,11 @@ type ConfigItem struct {
 // برای وقتی که به‌جای {ip}/{port} از یه کانفیگ واقعی استفاده می‌کنه.
 var ipPortRe = regexp.MustCompile(`\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):(\d{1,5})\b`)
 
+// برای گرفتن دامنه‌ی واقعی (Host/SNI) از کانفیگی که کاربر توی قالب نوشته —
+// چه با پارامتر host= چه sni= — تا تست پورت ۸۰ به‌جای IP خام، همون دامنه‌ی
+// واقعی رو توی هدر Host بفرسته (دقیقاً کاری که v2rayNG هم می‌کنه).
+var hostParamRe = regexp.MustCompile(`(?:host|sni)=([^&\s#]+)`)
+
 // کیبوردهای فارسی گاهی رقم‌های ۰-۹ یا ٠-٩ رو به‌جای 0-9 وارد می‌کنن؛
 // این تابع همه رو به رقم انگلیسی معمولی تبدیل می‌کنه تا تشخیص IP خراب نشه.
 func normalizeDigits(s string) string {
@@ -106,7 +111,7 @@ func pingColor(ms int64) color.Color {
 	}
 }
 
-func pingTCP(ip string, port int, timeout time.Duration) (int64, bool) {
+func pingTCP(ip string, port int, timeout time.Duration, hostHeader string) (int64, bool) {
 	t0 := time.Now()
 	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", ip, port), timeout)
 	if err != nil {
@@ -114,9 +119,13 @@ func pingTCP(ip string, port int, timeout time.Duration) (int64, bool) {
 	}
 	defer conn.Close()
 
-	if port == 80  {
+	if port == 80 {
 		conn.SetDeadline(time.Now().Add(timeout))
-		req := fmt.Sprintf("HEAD / HTTP/1.1\r\nHost: %s\r\nConnection: close\r\n\r\n", ip)
+		hh := hostHeader
+		if hh == "" {
+			hh = ip
+		}
+		req := fmt.Sprintf("HEAD / HTTP/1.1\r\nHost: %s\r\nConnection: close\r\n\r\n", hh)
 		if _, err := conn.Write([]byte(req)); err != nil {
 			return 0, false
 		}
@@ -124,15 +133,15 @@ func pingTCP(ip string, port int, timeout time.Duration) (int64, bool) {
 		n, err := conn.Read(buf)
 		if err != nil || n == 0 {
 			return 0, false
-               }
-                resp := strings.ToLower(string(buf[:n]))
-			if !strings.HasPrefix(resp, "http/") {
-				return 0, false
-			}
-			if !strings.Contains(resp, "cloudflare") && !strings.Contains(resp, "cf-ray") {
-				return 0, false
-			}
 		}
+		resp := strings.ToLower(string(buf[:n]))
+		if !strings.HasPrefix(resp, "http/") {
+			return 0, false
+		}
+		if !strings.Contains(resp, "cloudflare") && !strings.Contains(resp, "cf-ray") {
+			return 0, false
+		}
+	}
 
 	ms := time.Since(t0).Milliseconds()
 	if ms < 5 {
@@ -824,6 +833,13 @@ func main() {
 			ports = []int{80}
 		}
 
+		// دامنه‌ی واقعی (host/sni) رو یه‌بار از کانفیگ می‌گیریم تا تست پورت ۸۰
+		// به‌جای IP خام، از همون دامنه استفاده کنه (دقیق‌تر و واقعی‌تر).
+		scanHost := ""
+		if m := hostParamRe.FindStringSubmatch(normalizeDigits(templateEntry.Text)); len(m) == 2 {
+			scanHost = m[1]
+		}
+
 		var ips []string
 		mu.Lock()
 		selectedCustomIPs := make([]string, len(customIPs))
@@ -918,7 +934,7 @@ func main() {
 						defer wg.Done()
 						defer func() { <-sem }()
 
-						ms, ok := pingTCP(ip, port, 2500*time.Millisecond)
+						ms, ok := pingTCP(ip, port, 2500*time.Millisecond, scanHost)
 						if ok {
 							mu.Lock()
 							results = append(results, ScanResult{IP: ip, Port: port, PingMs: ms})
