@@ -349,7 +349,7 @@ func main() {
 
 	// ── Inputs ──
 	cidrEntry := widget.NewEntry()
-	cidrEntry.SetPlaceHolder("مثال: 104.16.0.0/24, 172.64.0.0/24. اگه خالی بذاری یعنی رندوم.")
+	cidrEntry.SetPlaceHolder("Example: 104.16.0.0/24, 172.64.0.0/24. Leave empty for random.")
 
 	// رنج‌های رسمی کلودفلر (طبق cloudflare.com/ips) — قابل انتخاب چندتایی
 	officialCFRanges := []string{
@@ -376,7 +376,7 @@ func main() {
 		rangeChecks = append(rangeChecks, chk)
 		rangeList.Add(chk)
 	}
-	addSelectedRangesBtn := widget.NewButton("اضافه کردن انتخاب‌شده‌ها به کادر رنج", func() {
+	addSelectedRangesBtn := widget.NewButton("Add Selected to Range Box", func() {
 		cur := strings.TrimSpace(cidrEntry.Text)
 		existing := map[string]bool{}
 		for _, p := range strings.Split(cur, ",") {
@@ -422,13 +422,13 @@ func main() {
 	rangeBody.Hide()
 
 	var toggleRangeBtn *widget.Button
-	toggleRangeBtn = widget.NewButton("نمایش رنج‌های پیشنهادی ▼", func() {
+	toggleRangeBtn = widget.NewButton("Show Suggested Ranges ▼", func() {
 		if rangeBody.Visible() {
 			rangeBody.Hide()
-			toggleRangeBtn.SetText("نمایش رنج‌های پیشنهادی ▼")
+			toggleRangeBtn.SetText("Show Suggested Ranges ▼")
 		} else {
 			rangeBody.Show()
-			toggleRangeBtn.SetText("جمع کردن رنج‌های پیشنهادی ▲")
+			toggleRangeBtn.SetText("Hide Suggested Ranges ▲")
 		}
 	})
 	toggleRangeBtn.Importance = widget.LowImportance
@@ -452,18 +452,18 @@ func main() {
 	scanBtn.Importance = widget.HighImportance
 
 	settingsBody := container.NewVBox(
-		widget.NewLabelWithStyle("تنظیمات رنج", fyne.TextAlignTrailing, fyne.TextStyle{}),
+		widget.NewLabelWithStyle("Range Settings", fyne.TextAlignTrailing, fyne.TextStyle{}),
 		rangeSettingsBox,
 		widget.NewSeparator(),
-		widget.NewLabelWithStyle("رنج CIDR – با کاما چند رنج جدا کن", fyne.TextAlignTrailing, fyne.TextStyle{}),
+		widget.NewLabelWithStyle("CIDR Range – separate multiple with commas", fyne.TextAlignTrailing, fyne.TextStyle{}),
 		cidrEntry,
 		container.NewGridWithColumns(2,
 			container.NewVBox(
-				widget.NewLabelWithStyle("پورت‌ها – با کاما جدا کن", fyne.TextAlignTrailing, fyne.TextStyle{}),
+				widget.NewLabelWithStyle("Ports – separate with commas", fyne.TextAlignTrailing, fyne.TextStyle{}),
 				portEntry,
 			),
 			container.NewVBox(
-				widget.NewLabelWithStyle("تعداد – حالت رندوم", fyne.TextAlignTrailing, fyne.TextStyle{}),
+				widget.NewLabelWithStyle("Count – Random Mode", fyne.TextAlignTrailing, fyne.TextStyle{}),
 				countEntry,
 			),
 		),
@@ -473,7 +473,7 @@ func main() {
 		statsLabel,
 	)
 
-	settingsTitle := canvas.NewText("تنظیمات اسکن", colFgDim)
+	settingsTitle := canvas.NewText("Scan Settings", colFgDim)
 	settingsTitle.TextSize = 12
 	settingsTitle.TextStyle = fyne.TextStyle{Bold: true}
 	settingsTitle.Alignment = fyne.TextAlignTrailing
@@ -481,13 +481,13 @@ func main() {
 	// دکمه‌ی جمع/باز کردن کارت تنظیمات، برای اینکه بشه فضای بیشتری
 	// به لیست نتایج/کانفیگ داد.
 	var toggleSettingsBtn *widget.Button
-	toggleSettingsBtn = widget.NewButton("جمع کن ▲", func() {
+	toggleSettingsBtn = widget.NewButton("Collapse ▲", func() {
 		if settingsBody.Visible() {
 			settingsBody.Hide()
-			toggleSettingsBtn.SetText("باز کن ▼")
+			toggleSettingsBtn.SetText("Expand ▼")
 		} else {
 			settingsBody.Show()
-			toggleSettingsBtn.SetText("جمع کن ▲")
+			toggleSettingsBtn.SetText("Collapse ▲")
 		}
 	})
 	toggleSettingsBtn.Importance = widget.LowImportance
@@ -523,11 +523,11 @@ func main() {
 	// متن رو یکجا پردازش می‌کنه)، و اضافه‌کردن از طریق دکمه‌ی «افزودن از
 	// کلیپ‌بورد» انجام میشه، نه پیست مستقیم توی یه کادر متنی.
 
-	customIPHelp := widget.NewLabel("آی‌پی‌ها یا رنج‌هارو کپی کن، بعد بزن «افزودن از کلیپ‌بورد». با لمس هر ردیف، همون آی‌پی از لیست حذف میشه.")
+	customIPHelp := widget.NewLabel("Copy IPs or ranges, then tap 'Add from Clipboard'. Tap any row to remove that IP from the list.")
 	customIPHelp.Wrapping = fyne.TextWrapWord
 	customIPHelp.Alignment = fyne.TextAlignTrailing
 
-	customIPCountLabel := widget.NewLabelWithStyle("0 آی‌پی", fyne.TextAlignTrailing, fyne.TextStyle{Bold: true})
+	customIPCountLabel := widget.NewLabelWithStyle("0 IPs", fyne.TextAlignTrailing, fyne.TextStyle{Bold: true})
 
 	customIPList := widget.NewList(
 		func() int { return 0 },
@@ -547,7 +547,7 @@ func main() {
 		copy(local, customIPs)
 		mu.Unlock()
 
-		customIPCountLabel.SetText(fmt.Sprintf("%d آی‌پی", len(local)))
+		customIPCountLabel.SetText(fmt.Sprintf("%d IPs", len(local)))
 
 		customIPList.Length = func() int { return len(local) }
 		customIPList.UpdateItem = func(id widget.ListItemID, o fyne.CanvasObject) {
@@ -568,10 +568,10 @@ func main() {
 		customIPList.Refresh()
 	}
 
-	addCustomIPsFromClipboard := widget.NewButtonWithIcon("افزودن از کلیپ‌بورد", theme.ContentPasteIcon(), func() {
+	addCustomIPsFromClipboard := widget.NewButtonWithIcon("Add from Clipboard", theme.ContentPasteIcon(), func() {
 		added := parseIPList(w.Clipboard().Content())
 		if len(added) == 0 {
-			customIPCountLabel.SetText("چیزی توی کلیپ‌بورد پیدا نشد")
+			customIPCountLabel.SetText("Nothing found in clipboard")
 			return
 		}
 		mu.Lock()
@@ -590,7 +590,7 @@ func main() {
 	})
 	addCustomIPsFromClipboard.Importance = widget.HighImportance
 
-	clearCustomIPsBtn := widget.NewButtonWithIcon("پاک کردن همه", theme.DeleteIcon(), func() {
+	clearCustomIPsBtn := widget.NewButtonWithIcon("Clear All", theme.DeleteIcon(), func() {
 		mu.Lock()
 		customIPs = nil
 		mu.Unlock()
@@ -600,7 +600,7 @@ func main() {
 
 	updateCustomIPList()
 
-	customIPTopCard := section("لیست آی‌پی دلخواه",
+	customIPTopCard := section("Custom IP List",
 		customIPHelp,
 		container.NewGridWithColumns(2, addCustomIPsFromClipboard, clearCustomIPsBtn),
 		customIPCountLabel,
@@ -621,14 +621,16 @@ func main() {
 			ip.TextStyle = fyne.TextStyle{Monospace: true}
 			ping := canvas.NewText("0ms", colGood)
 			ping.TextStyle = fyne.TextStyle{Bold: true}
+			full := canvas.NewText("", colBad)
+			full.TextStyle = fyne.TextStyle{Bold: true}
 			copyIcon := widget.NewIcon(theme.ContentCopyIcon())
-			right := container.NewHBox(ping, copyIcon)
+			right := container.NewHBox(ping, full, copyIcon)
 			return container.NewHBox(ip, layout.NewSpacer(), right)
 		},
 		func(id widget.ListItemID, o fyne.CanvasObject) {},
 	)
 
-	copyAllBtn := widget.NewButtonWithIcon("کپی همه آی‌پی", theme.ContentCopyIcon(), func() {
+	copyAllBtn := widget.NewButtonWithIcon("Copy All IPs", theme.ContentCopyIcon(), func() {
 		mu.Lock()
 		lines := make([]string, len(results))
 		for i, r := range results {
@@ -638,6 +640,24 @@ func main() {
 		w.Clipboard().SetContent(strings.Join(lines, "\n"))
 	})
 	copyAllBtn.Hide()
+
+	copyTop10Btn := widget.NewButtonWithIcon("Copy Top 10 IPs", theme.ContentCopyIcon(), func() {
+		mu.Lock()
+		local := make([]ScanResult, len(results))
+		copy(local, results)
+		mu.Unlock()
+		sort.Slice(local, func(i, j int) bool { return local[i].PingMs < local[j].PingMs })
+		n := len(local)
+		if n > 10 {
+			n = 10
+		}
+		lines := make([]string, n)
+		for i := 0; i < n; i++ {
+			lines[i] = local[i].IP
+		}
+		w.Clipboard().SetContent(strings.Join(lines, "\n"))
+	})
+	copyTop10Btn.Hide()
 
 	updateList := func() {
 		mu.Lock()
@@ -660,6 +680,13 @@ func main() {
 			ping.Text = fmt.Sprintf("%dms", r.PingMs)
 			ping.Color = pingColor(r.PingMs)
 			ping.Refresh()
+			full := right.Objects[1].(*canvas.Text)
+			if r.PingMs >= 1000 {
+				full.Text = "ERROR"
+			} else {
+				full.Text = ""
+			}
+			full.Refresh()
 		}
 		// با لمس هر ردیف، فقط همون IP کپی میشه — سبک‌تر از یک دکمه‌ی
 		// جداگانه روی هر ردیف، برای اسکرول روون‌تر با لیست‌های بزرگ.
@@ -676,17 +703,17 @@ func main() {
 	resultsBg := canvas.NewRectangle(colCard)
 	resultsBg.CornerRadius = 12
 	resultsWrap := container.NewPadded(container.NewStack(resultsBg, container.NewPadded(
-		container.NewBorder(container.NewPadded(copyAllBtn), nil, nil, nil, resultList),
+		container.NewBorder(container.NewPadded(container.NewVBox(copyAllBtn, copyTop10Btn)), nil, nil, nil, resultList),
 	)))
 
 	// ═══════════════════ تب کانفیگ ═══════════════════
 
-	configHelp := widget.NewLabel("کانفیگتو پیست کن، به تعداد آی‌پی‌های نتایج کانفیگ ببر.")
+	configHelp := widget.NewLabel("Paste your config, one will be generated for each result IP.")
 	configHelp.Wrapping = fyne.TextWrapWord
 	configHelp.Alignment = fyne.TextAlignTrailing
 
 	templateEntry := widget.NewMultiLineEntry()
-	templateEntry.SetPlaceHolder("مثال: trojan://pass@1.2.3.4:443?sni=example.com#MHMT")
+	templateEntry.SetPlaceHolder("Example: trojan://pass@1.2.3.4:443?sni=example.com#MHMT")
 	// نکته‌ی عملکردی: TextWrapWord هر بار باید مرز کلمه‌ها رو اسکن کنه که برای
 	// یه رشته‌ی کانفیگ (که معمولاً فاصله نداره، مثل trojan://...) گرون‌تره.
 	// TextWrapBreak فقط از روی عرض می‌شکنه، محاسبه‌ش سبک‌تره و برای این نوع متن
@@ -708,7 +735,7 @@ func main() {
 		func(id widget.ListItemID, o fyne.CanvasObject) {},
 	)
 
-	copyAllConfigsBtn := widget.NewButtonWithIcon("کپی همه کانفیگ‌ها", theme.ContentCopyIcon(), func() {
+	copyAllConfigsBtn := widget.NewButtonWithIcon("Copy All Configs", theme.ContentCopyIcon(), func() {
 		mu.Lock()
 		lines := make([]string, len(configs))
 		for i, c := range configs {
@@ -718,6 +745,21 @@ func main() {
 		w.Clipboard().SetContent(strings.Join(lines, "\n\n"))
 	})
 	copyAllConfigsBtn.Hide()
+
+	copyTop10ConfigsBtn := widget.NewButtonWithIcon("Copy Top 10 Configs", theme.ContentCopyIcon(), func() {
+		mu.Lock()
+		n := len(configs)
+		if n > 10 {
+			n = 10
+		}
+		lines := make([]string, n)
+		for i := 0; i < n; i++ {
+			lines[i] = configs[i].Config
+		}
+		mu.Unlock()
+		w.Clipboard().SetContent(strings.Join(lines, "\n\n"))
+	})
+	copyTop10ConfigsBtn.Hide()
 
 	updateConfigList := func() {
 		mu.Lock()
@@ -741,10 +783,10 @@ func main() {
 		configList.Refresh()
 	}
 
-	genBtn := widget.NewButtonWithIcon("ساخت کانفیگ از نتایج", theme.ViewRefreshIcon(), func() {
+	genBtn := widget.NewButtonWithIcon("Generate Configs from Results", theme.ViewRefreshIcon(), func() {
 		tpl := normalizeDigits(templateEntry.Text)
 		if strings.TrimSpace(tpl) == "" {
-			configMsg.SetText("اول یه قالب کانفیگ وارد کن")
+			configMsg.SetText("Enter a config template first")
 			return
 		}
 
@@ -755,7 +797,7 @@ func main() {
 			if len(preview) > 40 {
 				preview = preview[:40] + "…"
 			}
-			configMsg.SetText(fmt.Sprintf("\u200fنه {ip} نه آدرس آی‌پی:پورت واقعی پیدا نشد. شروع قالب: %s", preview))
+			configMsg.SetText(fmt.Sprintf("No {ip} token or real IP:port address found. Template starts with: %s", preview))
 			return
 		}
 
@@ -766,7 +808,7 @@ func main() {
 		sort.Slice(src, func(i, j int) bool { return src[i].PingMs < src[j].PingMs })
 
 		if len(src) == 0 {
-			configMsg.SetText("هنوز نتیجه‌ای نیست، اول اسکن بزن")
+			configMsg.SetText("No results yet, scan first")
 			return
 		}
 
@@ -787,18 +829,19 @@ func main() {
 		configs = built
 		mu.Unlock()
 
-		configMsg.SetText(fmt.Sprintf("%d کانفیگ ساخته شد", len(built)))
+		configMsg.SetText(fmt.Sprintf("%d configs generated", len(built)))
 		updateConfigList()
 		copyAllConfigsBtn.Show()
+		copyTop10ConfigsBtn.Show()
 	})
 	genBtn.Importance = widget.HighImportance
 
-	configCard := section("قالب کانفیگ", configHelp, templateEntry, genBtn, configMsg)
+	configCard := section("Config Template", configHelp, templateEntry, genBtn, configMsg)
 
 	configBg := canvas.NewRectangle(colCard)
 	configBg.CornerRadius = 12
 	configListWrap := container.NewPadded(container.NewStack(configBg, container.NewPadded(
-		container.NewBorder(container.NewPadded(copyAllConfigsBtn), nil, nil, nil, configList),
+		container.NewBorder(container.NewPadded(container.NewVBox(copyAllConfigsBtn, copyTop10ConfigsBtn)), nil, nil, nil, configList),
 	)))
 
 	configTab := container.NewBorder(configCard, nil, nil, nil, configListWrap)
@@ -806,9 +849,9 @@ func main() {
 	// ═══════════════════ تب‌ها ═══════════════════
 
 	tabs := container.NewAppTabs(
-		container.NewTabItemWithIcon("نتایج", theme.SearchIcon(), resultsWrap),
-		container.NewTabItemWithIcon("کانفیگ", theme.SettingsIcon(), configTab),
-		container.NewTabItemWithIcon("آی‌پی دلخواه", theme.ContentAddIcon(), customIPCard),
+		container.NewTabItemWithIcon("Results", theme.SearchIcon(), resultsWrap),
+		container.NewTabItemWithIcon("Config", theme.SettingsIcon(), configTab),
+		container.NewTabItemWithIcon("Custom IP", theme.ContentAddIcon(), customIPCard),
 	)
 	tabs.SetTabLocation(container.TabLocationTop)
 
@@ -852,7 +895,7 @@ func main() {
 		case cidr != "":
 			ips = genFromCIDR(cidr)
 			if len(ips) == 0 {
-				statsLabel.SetText("رنج CIDR معتبر نیست")
+				statsLabel.SetText("Invalid CIDR range")
 				return
 			}
 		default:
@@ -870,10 +913,12 @@ func main() {
 		updateList()
 		updateConfigList()
 		copyAllBtn.Hide()
+		copyTop10Btn.Hide()
 		copyAllConfigsBtn.Hide()
+		copyTop10ConfigsBtn.Hide()
 		configMsg.SetText("")
 		progress.SetValue(0)
-		statsLabel.SetText("در حال اسکن...")
+		statsLabel.SetText("Scanning...")
 
 		scanning = true
 		stopCh = make(chan struct{})
@@ -963,6 +1008,7 @@ func main() {
 
 			if o > 0 {
 				copyAllBtn.Show()
+				copyTop10Btn.Show()
 			}
 			scanBtn.SetText("SCAN")
 			scanBtn.SetIcon(theme.MediaPlayIcon())
@@ -971,7 +1017,7 @@ func main() {
 			if b >= 0 {
 				best = fmt.Sprintf("%dms", b)
 			}
-			statsLabel.SetText(fmt.Sprintf("تموم شد. SCANNED: %d   OPEN: %d   BEST: %s", total, o, best))
+			statsLabel.SetText(fmt.Sprintf("Done. SCANNED: %d   OPEN: %d   BEST: %s", total, o, best))
 		}()
 	}
 
