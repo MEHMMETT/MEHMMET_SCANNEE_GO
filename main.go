@@ -439,9 +439,11 @@ func main() {
 
 	portEntry := widget.NewEntry()
 	portEntry.SetText("443")
+	portEntry.SetPlaceHolder("e.g. 80,443")
 
 	countEntry := widget.NewEntry()
 	countEntry.SetText("100")
+	countEntry.SetPlaceHolder("e.g. 100")
 
 	// ── Stats ──
 	statsLabel := widget.NewLabelWithStyle("SCANNED: 0   OPEN: 0   BEST: —", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
@@ -460,19 +462,11 @@ func main() {
 		cidrEntry,
 		container.NewGridWithColumns(2,
 			container.NewVBox(
-				func() *widget.Label {
-					l := widget.NewLabelWithStyle("Ports – separate with commas", fyne.TextAlignTrailing, fyne.TextStyle{})
-					l.Wrapping = fyne.TextWrapWord
-					return l
-				}(),
+				widget.NewLabelWithStyle("Ports (comma-sep)", fyne.TextAlignTrailing, fyne.TextStyle{}),
 				portEntry,
 			),
 			container.NewVBox(
-				func() *widget.Label {
-					l := widget.NewLabelWithStyle("Count – Random Mode", fyne.TextAlignTrailing, fyne.TextStyle{})
-					l.Wrapping = fyne.TextWrapWord
-					return l
-				}(),
+				widget.NewLabelWithStyle("Random Count", fyne.TextAlignTrailing, fyne.TextStyle{}),
 				countEntry,
 			),
 		),
@@ -946,7 +940,7 @@ func main() {
 			// آپدیت UI فقط با فاصله‌ی زمانی مشخص انجام میشه، نه برای هر IP —
 			// این چیزیه که باعث لگ و گیر کردن گوشی می‌شد.
 			lastUI := time.Now()
-			const uiInterval = 200 * time.Millisecond
+			const uiInterval = 300 * time.Millisecond
 
 			pushUI := func(force bool) {
 				if !force && time.Since(lastUI) < uiInterval {
@@ -1035,6 +1029,9 @@ func main() {
 	bgRes := fyne.NewStaticResource("background.png", bgPNGBytes)
 	bgImage := canvas.NewImageFromResource(bgRes)
 	bgImage.FillMode = canvas.ImageFillStretch
+	// چون پس‌زمینه فقط یه گرادیانت سادست (بدون جزئیات ریز)، اسمووث‌اسکیل
+	// هیچ فایده‌ی بصری نداره ولی روی گوشی سنگین‌تره؛ پیکسلی سبک‌تره.
+	bgImage.ScaleMode = canvas.ImageScalePixels
 
 	// بخش جدا و کوچیک تماس با ادمین — همیشه پایین صفحه، بدون شلوغ‌کردن
 	// هیچ‌کدوم از تب‌های اصلی.
