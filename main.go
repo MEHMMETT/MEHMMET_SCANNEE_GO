@@ -6,6 +6,7 @@ import (
 	"image/color"
 	"math/rand"
 	"net"
+	"net/url"
 	"regexp"
 	"sort"
 	"strconv"
@@ -459,11 +460,19 @@ func main() {
 		cidrEntry,
 		container.NewGridWithColumns(2,
 			container.NewVBox(
-				widget.NewLabelWithStyle("Ports – separate with commas", fyne.TextAlignTrailing, fyne.TextStyle{}),
+				func() *widget.Label {
+					l := widget.NewLabelWithStyle("Ports – separate with commas", fyne.TextAlignTrailing, fyne.TextStyle{})
+					l.Wrapping = fyne.TextWrapWord
+					return l
+				}(),
 				portEntry,
 			),
 			container.NewVBox(
-				widget.NewLabelWithStyle("Count – Random Mode", fyne.TextAlignTrailing, fyne.TextStyle{}),
+				func() *widget.Label {
+					l := widget.NewLabelWithStyle("Count – Random Mode", fyne.TextAlignTrailing, fyne.TextStyle{})
+					l.Wrapping = fyne.TextWrapWord
+					return l
+				}(),
 				countEntry,
 			),
 		),
@@ -1027,6 +1036,13 @@ func main() {
 	bgImage := canvas.NewImageFromResource(bgRes)
 	bgImage.FillMode = canvas.ImageFillStretch
 
-	w.SetContent(container.NewStack(bgImage, container.NewBorder(top, nil, nil, nil, tabs)))
+	// بخش جدا و کوچیک تماس با ادمین — همیشه پایین صفحه، بدون شلوغ‌کردن
+	// هیچ‌کدوم از تب‌های اصلی.
+	telegramURL, _ := url.Parse("https://t.me/mehmmet_anv")
+	telegramIcon := widget.NewIcon(theme.MailComposeIcon())
+	telegramLink := widget.NewHyperlink("Telegram: @mehmmet_anv", telegramURL)
+	contactBar := container.NewCenter(container.NewHBox(telegramIcon, telegramLink))
+
+	w.SetContent(container.NewStack(bgImage, container.NewBorder(top, contactBar, nil, nil, tabs)))
 	w.ShowAndRun()
 }
