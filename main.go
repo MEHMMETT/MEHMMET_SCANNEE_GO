@@ -431,6 +431,11 @@ func main() {
 			rangeBody.Show()
 			toggleRangeBtn.SetText("Hide Suggested Ranges ▲")
 		}
+		// تلنگر به Fyne برای محاسبه‌ی دوباره‌ی اندازه — فقط پی‌سی (ویندوز/لینوکس)،
+		// چون این باگ خاص فول‌اسکرین مخصوص دسکتاپه؛ روی گوشی لازم نیست.
+		if !fyne.CurrentDevice().IsMobile() {
+			w.Resize(w.Canvas().Size())
+		}
 	})
 	toggleRangeBtn.Importance = widget.LowImportance
 	rangeSettingsBox := container.NewVBox(toggleRangeBtn, rangeBody)
@@ -491,6 +496,9 @@ func main() {
 		} else {
 			settingsBody.Show()
 			toggleSettingsBtn.SetText("Collapse ▲")
+		}
+		if !fyne.CurrentDevice().IsMobile() {
+			w.Resize(w.Canvas().Size())
 		}
 	})
 	toggleSettingsBtn.Importance = widget.LowImportance
