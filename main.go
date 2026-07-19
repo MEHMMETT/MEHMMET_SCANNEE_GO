@@ -310,13 +310,16 @@ func section(titleText string, items ...fyne.CanvasObject) fyne.CanvasObject {
 		body = container.NewVBox(append([]fyne.CanvasObject{lbl}, items...)...)
 	}
 
-	bg := canvas.NewRectangle(colCard)
+	blur := canvas.NewBlur(20)
+	blur.CornerRadius = 12
+
+	bg := canvas.NewRectangle(color.NRGBA{colCard.R, colCard.G, colCard.B, 150})
 	bg.CornerRadius = 12
 	bg.StrokeColor = colBorder
 	bg.StrokeWidth = 1
 
 	inner := container.New(layout.NewCustomPaddedLayout(8, 8, 12, 12), body)
-	return container.New(layout.NewCustomPaddedLayout(4, 4, 6, 6), container.NewStack(bg, inner))
+	return container.New(layout.NewCustomPaddedLayout(4, 4, 6, 6), container.NewStack(blur, bg, inner))
 }
 
 func main() {
