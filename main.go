@@ -310,10 +310,10 @@ func section(titleText string, items ...fyne.CanvasObject) fyne.CanvasObject {
 		body = container.NewVBox(append([]fyne.CanvasObject{lbl}, items...)...)
 	}
 
-	blur := canvas.NewBlur(20)
+	blur := canvas.NewBlur(35)
 	blur.CornerRadius = 12
 
-	bg := canvas.NewRectangle(color.NRGBA{colCard.R, colCard.G, colCard.B, 150})
+	bg := canvas.NewRectangle(color.NRGBA{colCard.R, colCard.G, colCard.B, 60})
 	bg.CornerRadius = 12
 	bg.StrokeColor = colBorder
 	bg.StrokeWidth = 1
@@ -637,8 +637,9 @@ func main() {
 			ping.TextStyle = fyne.TextStyle{Bold: true}
 			full := canvas.NewText("", colBad)
 			full.TextStyle = fyne.TextStyle{Bold: true}
+			full.TextSize = 11
 			copyIcon := widget.NewIcon(theme.ContentCopyIcon())
-			right := container.NewHBox(ping, full, copyIcon)
+			right := container.NewHBox(container.NewVBox(ping, full), copyIcon)
 			return container.NewHBox(ip, layout.NewSpacer(), right)
 		},
 		func(id widget.ListItemID, o fyne.CanvasObject) {},
@@ -688,15 +689,16 @@ func main() {
 			box := o.(*fyne.Container)
 			ip := box.Objects[0].(*widget.Label)
 			right := box.Objects[2].(*fyne.Container)
-			ping := right.Objects[0].(*canvas.Text)
+			pingBox := right.Objects[0].(*fyne.Container)
+			ping := pingBox.Objects[0].(*canvas.Text)
 
 			ip.SetText(fmt.Sprintf("%s:%d", r.IP, r.Port))
 			ping.Text = fmt.Sprintf("%dms", r.PingMs)
 			ping.Color = pingColor(r.PingMs)
 			ping.Refresh()
-			full := right.Objects[1].(*canvas.Text)
+			full := pingBox.Objects[1].(*canvas.Text)
 			if r.PingMs >= 1000 {
-				full.Text = "ERROR"
+				full.Text = "WARNING"
 			} else {
 				full.Text = ""
 			}
@@ -1044,13 +1046,20 @@ func main() {
 	// هیچ فایده‌ی بصری نداره ولی روی گوشی سنگین‌تره؛ پیکسلی سبک‌تره.
 	bgImage.ScaleMode = canvas.ImageScalePixels
 
-	// بخش جدا و کوچیک تماس با ادمین — همیشه پایین صفحه، بدون شلوغ‌کردن
-	// هیچ‌کدوم از تب‌های اصلی.
+	// بخش جدا و کوچیک تماس با ادمین. روی پی‌سی پایین صفحه می‌مونه (مشکلی نداره
+	// چون کیبورد مجازی وجود نداره). روی گوشی، چون کیبورد باعث می‌شد این نوار
+	// همراه صفحه بالا بیاد و روی محتوا بیفته، بردیمش داخل هدر بالا که کیبورد
+	// روش اثر نمی‌ذاره.
 	telegramURL, _ := url.Parse("https://t.me/mehmmet_anv")
 	telegramIcon := widget.NewIcon(theme.MailComposeIcon())
 	telegramLink := widget.NewHyperlink("Telegram: @mehmmet_anv", telegramURL)
 	contactBar := container.NewCenter(container.NewHBox(telegramIcon, telegramLink))
 
-	w.SetContent(container.NewStack(bgImage, container.NewBorder(top, contactBar, nil, nil, tabs)))
+	if fyne.CurrentDevice().IsMobile() {
+		top.Add(contactBar)
+		w.SetContent(container.NewStack(bgImage, container.NewBorder(top, nil, nil, nil, tabs)))
+	} else {
+		w.SetContent(container.NewStack(bgImage, container.NewBorder(top, contactBar, nil, nil, tabs)))
+	}
 	w.ShowAndRun()
 }
