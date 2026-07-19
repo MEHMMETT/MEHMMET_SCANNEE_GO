@@ -52,8 +52,8 @@ var cfSubnets = []string{
 var (
 	colBg      = color.NRGBA{6, 10, 22, 255}
 	colGlow    = color.NRGBA{13, 36, 82, 255}   // نور بنفش محو پشت صفحه
-	colCard    = color.NRGBA{14, 22, 42, 100}   // شفاف‌تر برای حس شیشه‌ای بیشتر (قبلاً آلفا=۱۵۰)
-	colBorder  = color.NRGBA{70, 110, 170, 60} // لبه‌ی روشن‌تر خیلی شفاف (قبلاً آلفا=۹۰)
+	colCard    = color.NRGBA{18, 27, 50, 255}   // کاملاً کدر — دیگه نیازی به blend با پس‌زمینه نیست (سبک‌تر روی گوشی)
+	colBorder  = color.NRGBA{70, 110, 170, 130} // نیمه‌شفاف ولی خیلی کمتر از قبل (فقط برای خط باریک حاشیه)
 	colAccent  = color.NRGBA{80, 140, 200, 255}
 	colAccent2 = color.NRGBA{0, 224, 190, 255}
 	colFg      = color.NRGBA{215, 225, 240, 255}
