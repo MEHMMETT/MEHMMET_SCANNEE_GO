@@ -433,8 +433,13 @@ func main() {
 		}
 		// تلنگر به Fyne برای محاسبه‌ی دوباره‌ی اندازه — فقط پی‌سی (ویندوز/لینوکس)،
 		// چون این باگ خاص فول‌اسکرین مخصوص دسکتاپه؛ روی گوشی لازم نیست.
+		// resize به همون سایز قبلی no-op بود و کاری نمی‌کرد؛ اینجا واقعاً
+		// سایز رو یه پیکسل عوض می‌کنیم و برمی‌گردونیم تا Fyne واقعاً دوباره
+		// چیدمان رو حساب کنه.
 		if !fyne.CurrentDevice().IsMobile() {
-			w.Resize(w.Canvas().Size())
+			sz := w.Canvas().Size()
+			w.Resize(fyne.NewSize(sz.Width+1, sz.Height))
+			w.Resize(sz)
 		}
 	})
 	toggleRangeBtn.Importance = widget.LowImportance
@@ -498,7 +503,9 @@ func main() {
 			toggleSettingsBtn.SetText("Collapse ▲")
 		}
 		if !fyne.CurrentDevice().IsMobile() {
-			w.Resize(w.Canvas().Size())
+			sz := w.Canvas().Size()
+			w.Resize(fyne.NewSize(sz.Width+1, sz.Height))
+			w.Resize(sz)
 		}
 	})
 	toggleSettingsBtn.Importance = widget.LowImportance
